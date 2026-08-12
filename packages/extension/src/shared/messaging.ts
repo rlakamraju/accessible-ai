@@ -1,4 +1,11 @@
-import type { ComplianceScore, ProcessedAuditResult, StandardId, ViolationNode } from './types';
+import type {
+  ComplianceScore,
+  CrawlConfig,
+  ProcessedAuditResult,
+  SiteAuditProgress,
+  StandardId,
+  ViolationNode,
+} from './types';
 
 export type Message = { type: string };
 
@@ -38,10 +45,34 @@ export interface ClearOverlayMessage {
   type: 'CLEAR_OVERLAY';
 }
 
+export interface StartSiteAuditMessage {
+  type: 'START_SITE_AUDIT';
+  rootUrl: string;
+  standard: StandardId;
+  crawlConfig: CrawlConfig;
+}
+
+export interface SiteAuditStartedMessage {
+  type: 'SITE_AUDIT_STARTED';
+}
+
+export interface CancelSiteAuditMessage {
+  type: 'CANCEL_SITE_AUDIT';
+}
+
+export interface SiteAuditProgressMessage {
+  type: 'SITE_AUDIT_PROGRESS';
+  progress: SiteAuditProgress;
+}
+
 export type ExtensionMessage =
   | StartAuditMessage
   | AuditCompleteMessage
   | AuditErrorMessage
   | ShowOverlayMessage
   | HighlightSingleMessage
-  | ClearOverlayMessage;
+  | ClearOverlayMessage
+  | StartSiteAuditMessage
+  | SiteAuditStartedMessage
+  | CancelSiteAuditMessage
+  | SiteAuditProgressMessage;

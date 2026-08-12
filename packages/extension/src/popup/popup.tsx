@@ -8,17 +8,31 @@ import { ViolationList } from './components/ViolationList';
 import { ReportExport } from './components/ReportExport';
 import { LicenseSettings } from './components/LicenseSettings';
 import { UpgradePrompt } from './components/UpgradePrompt';
+import { SiteAuditButton } from './components/SiteAuditButton';
+import { CrawlProgress } from './components/CrawlProgress';
+import { AuditHistory } from './components/AuditHistory';
 import { useAudit } from './hooks/useAudit';
+import { useSiteAudit } from './hooks/useSiteAudit';
 import { checkFeatureAccess, type FeatureAccessResult } from '../core/license-gate';
-import { getActiveTabId } from '../shared/browser-tabs';
+import { getActiveTabId, getActiveTabUrl } from '../shared/browser-tabs';
 import type { HighlightSingleMessage } from '../shared/messaging';
 import './styles/popup.css';
 
+type View = 'audit' | 'settings' | 'history';
+
 function Popup() {
   const [standard, setStandard] = useState<StandardId>('wcag-2.1-aa');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [view, setView] = useState<View>('audit');
   const [deepAnalysisAccess, setDeepAnalysisAccess] = useState<FeatureAccessResult | null>(null);
+  const [siteAuditAccess, setSiteAuditAccess] = useState<FeatureAccessResult | null>(null);
   const { isAuditing, results, error, startAudit } = useAudit();
+  const {
+    progress: siteProgress,
+    isRunning: isSiteAuditing,
+    startedAt: siteAuditStartedAt,
+    startSiteAudit,
+    cancelSiteAudit,
+  } = useSiteAudit();
 
   async function handleAudit(): Promise<void> {
     setDeepAnalysisAccess(null);
@@ -40,25 +54,54 @@ function Popup() {
     setDeepAnalysisAccess(access);
   }
 
+  async function handleStartSiteAudit(maxPages: number): Promise<void> {
+    setSiteAuditAccess(null);
+    if (maxPages > 5) {
+      const access = await checkFeatureAccess('site-crawl-unlimited');
+      if (!access.allowed) {
+        setSiteAuditAccess(access);
+        return;
+      }
+    }
+    const rootUrl = await getActiveTabUrl();
+    await startSiteAudit(rootUrl, standard, {
+      maxPages,
+      maxDepth: 3,
+      respectRobotsTxt: true,
+      delayMs: 500,
+    });
+  }
+
   const standardName = results ? resolveStandard(standard).standard.name : '';
 
   return (
     <div className="popup-app">
       <header className="popup-header">
         <h1>AccessibleAI</h1>
-        <button
-          type="button"
-          className="settings-gear"
-          aria-label="License settings"
-          onClick={() => setSettingsOpen((v) => !v)}
-        >
-          ⚙
-        </button>
+        <div className="popup-header-actions">
+          <button
+            type="button"
+            className="settings-gear"
+            aria-label="Audit history"
+            onClick={() => setView((v) => (v === 'history' ? 'audit' : 'history'))}
+          >
+            🕘
+          </button>
+          <button
+            type="button"
+            className="settings-gear"
+            aria-label="License settings"
+            onClick={() => setView((v) => (v === 'settings' ? 'audit' : 'settings'))}
+          >
+            ⚙
+          </button>
+        </div>
       </header>
 
-      {settingsOpen ? (
-        <LicenseSettings onClose={() => setSettingsOpen(false)} />
-      ) : (
+      {view === 'settings' && <LicenseSettings onClose={() => setView('audit')} />}
+      {view === 'history' && <AuditHistory onClose={() => setView('audit')} />}
+
+      {view === 'audit' && (
         <>
           <StandardPicker onStandardChange={setStandard} />
           <AuditButton isAuditing={isAuditing} onAudit={handleAudit} />
@@ -80,7 +123,7 @@ function Popup() {
                 <UpgradePrompt
                   feature="deep-analysis"
                   reason={deepAnalysisAccess.reason}
-                  onOpenSettings={() => setSettingsOpen(true)}
+                  onOpenSettings={() => setView('settings')}
                 />
               )}
               {deepAnalysisAccess?.allowed && (
@@ -90,8 +133,20 @@ function Popup() {
               )}
 
               <ViolationList result={results.result} onSelectViolation={handleSelectViolation} />
-              <ReportExport result={results.result} score={results.score} standardName={standardName} />
+              <ReportExport kind="page" result={results.result} score={results.score} standardName={standardName} />
             </>
+          )}
+
+          <SiteAuditButton isRunning={isSiteAuditing} onStart={handleStartSiteAudit} />
+          {siteAuditAccess && !siteAuditAccess.allowed && (
+            <UpgradePrompt
+              feature="site-crawl-unlimited"
+              reason={siteAuditAccess.reason}
+              onOpenSettings={() => setView('settings')}
+            />
+          )}
+          {siteProgress && (
+            <CrawlProgress progress={siteProgress} startedAt={siteAuditStartedAt} onCancel={cancelSiteAudit} />
           )}
         </>
       )}

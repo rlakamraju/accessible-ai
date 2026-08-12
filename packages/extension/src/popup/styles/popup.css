@@ -457,3 +457,139 @@ body {
   color: #6b7280;
   margin: 0 0 10px;
 }
+
+.popup-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.site-audit-row {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+
+.site-audit-max-pages {
+  width: 56px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
+.site-audit-button {
+  flex: 1;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #2563eb;
+  color: #2563eb;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.site-audit-button:disabled {
+  border-color: #93c5fd;
+  color: #93c5fd;
+  cursor: not-allowed;
+}
+
+.crawl-progress {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.crawl-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.crawl-progress .bar-track {
+  height: 6px;
+  margin-bottom: 6px;
+}
+
+.crawl-progress .bar-fill {
+  background: #2563eb;
+}
+
+.crawl-progress-detail {
+  margin: 0;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crawl-progress-eta {
+  margin: 4px 0 0;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.audit-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.audit-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.audit-history-header h2 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.audit-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.audit-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.audit-history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.audit-history-kind {
+  font-weight: 600;
+  font-size: 11px;
+  color: #2563eb;
+}
+
+.audit-history-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-history-meta {
+  color: #6b7280;
+  font-size: 11px;
+}

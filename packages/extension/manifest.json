@@ -3,12 +3,16 @@
   "name": "AccessibleAI",
   "version": "0.1.0",
   "description": "Audit any page for accessibility compliance.",
-  "permissions": ["activeTab", "scripting", "storage", "downloads"],
+  "permissions": ["activeTab", "scripting", "storage", "downloads", "tabs", "alarms", "sidePanel"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background/service-worker.js"
   },
   "action": {
     "default_popup": "popup/popup.html"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
   },
   "icons": {
     "16": "assets/icons/icon16.png",

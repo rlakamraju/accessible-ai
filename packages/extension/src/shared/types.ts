@@ -56,3 +56,96 @@ export interface ComplianceScore {
 export interface AxeRunConfig {
   tags: string[];
 }
+
+// ---- Site-wide crawl + audit (Phase 2) ----
+
+export interface CrawlConfig {
+  maxPages: number;
+  maxDepth: number;
+  includePatterns?: string[];
+  excludePatterns?: string[];
+  respectRobotsTxt: boolean;
+  delayMs: number;
+}
+
+export interface PageMeta {
+  title: string;
+  url: string;
+  metaDescription?: string;
+  h1Text?: string;
+}
+
+export interface CrawlProgress {
+  phase: 'crawling';
+  pagesVisited: number;
+  pagesTotal: number;
+  currentUrl: string;
+  discoveredUrls: string[];
+}
+
+export interface AuditingProgress {
+  phase: 'auditing';
+  pagesAudited: number;
+  pagesTotal: number;
+  currentUrl: string;
+}
+
+export interface AggregatingProgress {
+  phase: 'aggregating';
+}
+
+export interface PageScore {
+  url: string;
+  title: string;
+  score: number;
+  violationCount: number;
+}
+
+export interface CriterionAggregate {
+  criterionId: string;
+  criterionName: string;
+  pagesAffected: string[];
+  totalInstances: number;
+}
+
+export interface SiteAuditResult {
+  standardId: StandardId;
+  rootUrl: string;
+  timestamp: string;
+  siteScore: number;
+  totalViolations: number;
+  pageScores: PageScore[];
+  byCriterion: CriterionAggregate[];
+  pageResults: Record<string, ProcessedAuditResult>;
+}
+
+export interface SiteAuditCompleteProgress {
+  phase: 'complete';
+  result: SiteAuditResult;
+}
+
+export interface SiteAuditErrorProgress {
+  phase: 'error';
+  error: string;
+}
+
+export interface SiteAuditCancelledProgress {
+  phase: 'cancelled';
+}
+
+export type SiteAuditProgress =
+  | CrawlProgress
+  | AuditingProgress
+  | AggregatingProgress
+  | SiteAuditCompleteProgress
+  | SiteAuditErrorProgress
+  | SiteAuditCancelledProgress;
+
+export interface AuditHistoryEntry {
+  id: string;
+  kind: 'page' | 'site';
+  url: string;
+  standardId: StandardId;
+  timestamp: string;
+  score: number;
+}
