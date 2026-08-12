@@ -1,0 +1,22 @@
+{
+  "name": "@accessible-ai/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rimraf --glob dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@accessible-ai/standards": "*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "vitest": "^3.2.4"
+  }
+}
