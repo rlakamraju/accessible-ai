@@ -1,0 +1,22 @@
+{
+  "ada": {
+    "basedOn": "2.1",
+    "level": "AA",
+    "notes": "The DOJ's 2024 Title II rule adopts WCAG 2.1 Level AA as the technical standard for state/local government web content. Title III (private businesses) has no codified technical standard, but WCAG 2.1 AA is the de facto benchmark used in enforcement and settlements."
+  },
+  "section-508": {
+    "basedOn": "2.0",
+    "level": "AA",
+    "notes": "The 2018 Section 508 Refresh incorporates WCAG 2.0 Level A and AA by reference (36 CFR 1194.1, Appendix A) for federal ICT."
+  },
+  "eaa": {
+    "basedOn": "2.1",
+    "level": "AA",
+    "notes": "The European Accessibility Act (Directive (EU) 2019/882) is implemented via harmonized standard EN 301 549, which itself incorporates WCAG 2.1 Level AA success criteria for web content. EN 301 549 also imposes requirements outside WCAG's scope (hardware, non-web software, support services).",
+    "additionalRequirements": [
+      "EN 301 549 clause 9-11: web/software/documentation conformance beyond WCAG success criteria",
+      "Accessible alternative-format documentation and support services",
+      "Accessibility statement and feedback mechanism (per Directive Annex V/Article 7)"
+    ]
+  }
+}

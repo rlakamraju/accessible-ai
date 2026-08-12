@@ -1,0 +1,1824 @@
+# AccessibleAI — Accessibility Compliance Suite
+## Architecture Plan (Chrome Extension + MCP Server + VS Code Integration)
+
+---
+
+## 1. Product Vision & Interview Positioning
+
+**One-liner:** An AI-powered accessibility compliance suite that audits live websites and codebases against WCAG, ADA, Section 508, and EAA — combining automated rule engines with LLM intelligence for contextual analysis and remediation.
+
+**Why this showcases AI engineering skills:**
+
+- **MCP server development** — production-grade, multi-tool MCP server (direct resume bullet)
+- **Tool calling / agentic orchestration** — Claude uses MCP tools in sequence: crawl → audit → analyze → report → fix
+- **LLM-augmented analysis** — goes beyond axe-core's rule matching; uses Claude to evaluate alt text quality, suggest meaningful ARIA labels, assess content structure, and generate framework-specific fixes
+- **RAG pattern** — the standards-mapping knowledge base acts as a retrieval layer that grounds Claude's responses in specific WCAG criteria
+- **Prompt engineering** — carefully crafted system prompts that make Claude behave as an accessibility expert with standard-specific knowledge
+- **Full-stack depth** — Chrome extension (browser APIs, DOM manipulation, content scripts), MCP server (TypeScript, axe-core, AST parsing), VS Code integration (Claude Code workflows)
+
+**The demo script (3-4 minutes, memorize this — two parts):**
+
+**Part 1 — Live Site Audit (Chrome Extension, 90 seconds):**
+
+> "Let me show you. Here's your company's website."
+> *Click extension icon → instant accessibility overlay with violations highlighted on the page*
+> "It found 23 violations. These 8 are ADA-critical — your site has legal exposure here."
+> *Click 'Deep Analysis' → Claude analyzes the findings with context*
+> "Now watch — Claude isn't just repeating axe-core output. It's telling us this alt text is technically present but meaningless, this custom dropdown needs specific ARIA patterns, and this color combination fails contrast on mobile but not desktop because of the responsive font size change."
+
+**Part 2 — Remediation (Claude Code, 2 minutes):**
+
+> "Now here's where it gets interesting. I'll export these findings to the project."
+> *Click 'Export to Claude Code' → switch to VS Code with Claude Code open*
+> "I tell Claude: 'Import the accessibility audit and fix everything you can against ADA.'"
+> *Claude Code runs: import results → map violations to source files → generate fix plan*
+> "It mapped all 23 runtime violations back to their source components. It found 12 more issues via static analysis that weren't visible on the rendered page. Now it generates a phased plan."
+> *Show the fix plan summary: 18 auto-fixable, 12 LLM-assisted, 5 manual review*
+> "Phase 1 is auto-fixes — form labels, heading hierarchy, decorative images. Watch."
+> *Claude applies all auto-fixes, shows diffs*
+> "Phase 2 — Claude generates Angular-specific fixes. This dropdown needs full ARIA listbox pattern with keyboard navigation. Claude knows the project uses Angular Material, so it uses CDK Listbox instead of hand-rolling it."
+> *Show one LLM-generated fix diff with CDK imports*
+> "After all fixes, it re-runs the audit on the modified code."
+> *verify_fixes returns: compliance 58% → 93%, commit message generated*
+> "62 to 93 percent compliant, commit message ready, and it caught one regression where a fix broke a label association — it flagged it before I could push."
+
+---
+
+## 2. Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         USER-FACING LAYER                              │
+│                                                                        │
+│  ┌──────────────────────┐     ┌──────────────────────────────────────┐ │
+│  │   Chrome Extension   │     │         MCP Server                   │ │
+│  │   (Distribution &    │     │         (AI Intelligence &           │ │
+│  │    Live Site Audit)  │     │          Codebase Analysis)          │ │
+│  │                      │     │                                      │ │
+│  │  • Page overlay UI   │     │  Used via Claude Desktop /           │ │
+│  │  • Popup dashboard   │     │  Claude Code for codebase            │ │
+│  │  • axe-core injection│     │  workflows                           │ │
+│  │  • Site crawling     │     │                                      │ │
+│  │  • Compliance report │     │  Also serves as the AI backend       │ │
+│  │                      │◄───►│  for the Chrome Extension's          │ │
+│  │                      │HTTP │  "Deep Analysis" feature             │ │
+│  └──────────────────────┘     └──────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Four Operating Modes
+
+| Mode | Entry Point | What Happens |
+|---|---|---|
+| **Quick Audit** | Chrome Extension alone | axe-core injection → instant violations overlay. Zero setup, works offline, no AI needed. |
+| **Deep Analysis** | Chrome Extension → MCP Server | axe-core results sent to locally-running MCP server → Claude provides contextual analysis, alt text evaluation, ARIA recommendations, compliance mapping, fix suggestions |
+| **Codebase Audit** | Claude Code / Claude Desktop | MCP tools used directly: static analysis → report → fix plan → apply fixes |
+| **Remediate** | Chrome Extension → MCP → Claude Code **or** MCP directly in Claude Code | Findings (from live site or codebase) are mapped to source files → prioritized implementation plan generated → fixes applied file-by-file with verification → compliance score re-evaluated. This is the full closed-loop workflow. |
+
+The Chrome Extension works standalone for Quick Audit (maximum distribution, zero friction), and optionally connects to the MCP server for AI-powered deep analysis and remediation orchestration (maximum value, showcases AI skills).
+
+**The Closed-Loop Remediation Flow (the killer feature):**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TWO ENTRY POINTS, ONE FIX PIPELINE                  │
+│                                                                            │
+│  Entry A: Live Site                    Entry B: Codebase                   │
+│  (Chrome Extension)                    (Claude Code)                       │
+│       │                                     │                              │
+│       ▼                                     ▼                              │
+│  axe-core audit on                    Static analysis on                   │
+│  rendered pages                       source files (AST)                   │
+│       │                                     │                              │
+│       ▼                                     ▼                              │
+│  ┌──────────────────────────────────────────────────────────────────┐      │
+│  │                   SHARED REMEDIATION PIPELINE                    │      │
+│  │                                                                  │      │
+│  │  1. Normalize findings → unified issue format                    │      │
+│  │  2. Map runtime violations → source file locations               │      │
+│  │  3. Deduplicate (same root cause across pages/components)        │      │
+│  │  4. Prioritize (impact × effort × legal risk)                    │      │
+│  │  5. Generate implementation plan (phased, per-file)              │      │
+│  │  6. Apply fixes (AST transforms + LLM-generated patches)        │      │
+│  │  7. Validate (re-run analysis on modified files)                 │      │
+│  │  8. Generate before/after compliance delta report                │      │
+│  └──────────────────────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Chrome Extension Architecture
+
+### 3.1 Extension Structure
+
+```
+accessible-ai-extension/
+├── manifest.json                    # Manifest V3
+├── src/
+│   ├── background/
+│   │   ├── service-worker.ts        # Extension lifecycle, message routing
+│   │   ├── crawler.ts               # Multi-page crawl orchestration
+│   │   └── mcp-bridge.ts            # HTTP client to local MCP server
+│   │
+│   ├── content/
+│   │   ├── injector.ts              # axe-core injection + execution
+│   │   ├── overlay.ts               # Violation highlighting on page
+│   │   ├── dom-inspector.ts         # Click-to-inspect accessibility info
+│   │   └── styles/
+│   │       └── overlay.css          # Overlay styling (shadow DOM isolated)
+│   │
+│   ├── popup/
+│   │   ├── popup.html
+│   │   ├── popup.tsx                # React popup UI
+│   │   ├── components/
+│   │   │   ├── Dashboard.tsx        # Score + violation summary
+│   │   │   ├── ViolationList.tsx    # Grouped violations with filters
+│   │   │   ├── StandardPicker.tsx   # WCAG / ADA / 508 / EAA selector
+│   │   │   ├── CrawlProgress.tsx    # Multi-page crawl status
+│   │   │   ├── DeepAnalysis.tsx     # AI-powered analysis results
+│   │   │   └── ReportExport.tsx     # Export as MD / HTML / JSON / PDF
+│   │   └── hooks/
+│   │       ├── useAudit.ts          # Audit state management
+│   │       └── useMcpConnection.ts  # MCP server connection status
+│   │
+│   ├── sidepanel/
+│   │   ├── sidepanel.html
+│   │   └── sidepanel.tsx            # Persistent side panel for deep dives
+│   │
+│   ├── devtools/
+│   │   ├── devtools.html
+│   │   ├── devtools.ts              # DevTools panel registration
+│   │   └── panel/
+│   │       ├── panel.html
+│   │       └── panel.tsx            # Accessibility tree inspector panel
+│   │
+│   ├── core/
+│   │   ├── axe-runner.ts            # axe-core configuration + execution
+│   │   ├── standards-mapper.ts      # WCAG criteria ↔ standard mapping
+│   │   ├── score-calculator.ts      # Compliance score computation
+│   │   ├── result-processor.ts      # Normalize + enrich axe results
+│   │   └── storage.ts               # chrome.storage for audit history
+│   │
+│   └── shared/
+│       ├── types.ts                 # Shared TypeScript interfaces
+│       ├── constants.ts             # Standard definitions, severity levels
+│       └── messaging.ts             # Type-safe message passing
+│
+├── assets/
+│   ├── icons/                       # Extension icons (16, 48, 128)
+│   └── axe-core.min.js             # Bundled axe-core
+│
+├── tests/
+│   ├── unit/
+│   └── e2e/                         # Playwright extension testing
+│
+├── webpack.config.ts                # Build configuration
+├── tsconfig.json
+└── package.json
+```
+
+### 3.2 Manifest V3 Configuration
+
+```jsonc
+{
+  "manifest_version": 3,
+  "name": "AccessibleAI",
+  "version": "1.0.0",
+  "description": "AI-powered accessibility compliance auditing — WCAG, ADA, Section 508, EAA",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "sidePanel",
+    "tabs"
+  ],
+  "optional_permissions": [
+    "webNavigation"       // requested only when crawl feature is used
+  ],
+  "host_permissions": [
+    "<all_urls>"          // needed to inject axe-core on any page
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "devtools_page": "devtools/devtools.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/injector.js"],
+      "run_at": "document_idle",
+      "all_frames": true         // catch iframes too
+    }
+  ]
+}
+```
+
+### 3.3 Core Audit Flow (Quick Audit — Extension Only)
+
+```
+User clicks extension icon
+         │
+         ▼
+┌─────────────────────────────────┐
+│  Popup renders StandardPicker   │
+│  (default: WCAG 2.1 AA)        │
+│                                 │
+│  User clicks "Audit This Page"  │
+└──────────────┬──────────────────┘
+               │ chrome.runtime.sendMessage
+               ▼
+┌─────────────────────────────────┐
+│  Service Worker                 │
+│                                 │
+│  1. Resolve standard → axe tags │
+│  2. chrome.scripting.executeScript │
+│     → inject axe-core into tab  │
+│  3. Send config to content script │
+└──────────────┬──────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│  Content Script (injector.ts)   │
+│                                 │
+│  1. axe.run(document, config)   │
+│  2. Process results             │
+│  3. Send to overlay.ts          │
+│  4. Send to service worker      │
+└──────┬──────────────┬───────────┘
+       │              │
+       ▼              ▼
+  ┌─────────┐   ┌──────────────┐
+  │ Overlay  │   │ Popup gets   │
+  │ renders  │   │ results via  │
+  │ on page  │   │ message      │
+  └─────────┘   └──────────────┘
+```
+
+### 3.4 Page Overlay Design
+
+The overlay is the hero feature — it's what makes the demo memorable.
+
+**Implementation:** Shadow DOM container injected at `document.body` level so it doesn't interfere with page styles or get affected by the page's CSS. All overlay styles are scoped within the shadow root.
+
+**Visual design:**
+
+- Floating badge in bottom-right: compliance score (color-coded red/amber/green) + violation count
+- Click badge → violations panel slides in from right (inside shadow DOM)
+- Each violation is clickable → highlights the offending element on the page with a pulsing border + tooltip showing the WCAG criterion, impact level, and fix suggestion
+- Violations grouped by severity (critical → minor) with WCAG criterion tags
+- Toggle between "issues" and "passed" views
+- Filter by WCAG principle (Perceivable / Operable / Understandable / Robust)
+
+**Highlight mechanics:**
+
+```typescript
+// overlay.ts — simplified
+function highlightViolation(node: AxeNodeResult) {
+  const element = document.querySelector(node.target[0]);
+  if (!element) return;
+
+  const rect = element.getBoundingClientRect();
+  const highlight = document.createElement('div');
+  highlight.style.cssText = `
+    position: fixed;
+    top: ${rect.top}px; left: ${rect.left}px;
+    width: ${rect.width}px; height: ${rect.height}px;
+    border: 2px solid ${severityColor(node.impact)};
+    background: ${severityColor(node.impact)}20;
+    pointer-events: none;
+    z-index: 2147483647;
+    animation: a11y-pulse 1.5s ease-in-out infinite;
+  `;
+  shadowRoot.appendChild(highlight);
+}
+```
+
+### 3.5 Site Crawl (Multi-Page Audit)
+
+When the user clicks "Audit Entire Site," the service worker orchestrates a multi-tab crawl:
+
+1. Open the root URL, extract all same-origin `<a href>` links
+2. Deduplicate + filter (respect max pages, exclude patterns)
+3. Open each URL in a background tab (one at a time to avoid resource issues)
+4. Inject axe-core, collect results, close tab
+5. Aggregate results across pages
+6. Present combined report in side panel
+
+The crawl uses `chrome.tabs.create({ active: false })` + `chrome.scripting.executeScript` and communicates via `chrome.runtime.onMessage`. Progress is streamed to the popup via a port connection.
+
+### 3.6 Deep Analysis (Extension → MCP Server Bridge)
+
+When the user clicks "Deep Analysis" (requires MCP server running locally):
+
+```typescript
+// mcp-bridge.ts
+const MCP_LOCAL_URL = 'http://localhost:3100';
+
+async function requestDeepAnalysis(auditResults: AxeResults, standard: string) {
+  const response = await fetch(`${MCP_LOCAL_URL}/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      auditResults,
+      standard,
+      pageUrl: auditResults.url,
+      pageHtml: document.documentElement.outerHTML // send DOM snapshot
+    })
+  });
+  return response.json();
+  // Returns: LLM-enhanced analysis with contextual recommendations
+}
+```
+
+The MCP server exposes a lightweight HTTP endpoint alongside its MCP stdio transport specifically for the Chrome extension bridge. This endpoint receives axe-core results + DOM snapshot and runs them through Claude for contextual analysis.
+
+---
+
+## 4. MCP Server Architecture (Revised for Dual Role)
+
+The MCP server serves two roles:
+1. **AI backend for Chrome Extension** — HTTP endpoint for deep analysis
+2. **Standalone MCP server** — for codebase analysis via Claude Code / Claude Desktop
+
+### 4.1 Dual Transport
+
+```typescript
+// src/index.ts
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import express from 'express';
+
+// MCP transport (for Claude Desktop / Claude Code)
+const mcpServer = new Server({ name: 'accessible-ai', version: '1.0.0' }, {
+  capabilities: { tools: {} }
+});
+registerAllTools(mcpServer);
+
+// HTTP transport (for Chrome Extension bridge)
+const httpServer = express();
+httpServer.use(express.json({ limit: '10mb' })); // DOM snapshots can be large
+httpServer.use(cors({ origin: /^chrome-extension:\/\// }));
+
+httpServer.post('/analyze', async (req, res) => {
+  const { auditResults, standard, pageUrl, pageHtml } = req.body;
+  const analysis = await deepAnalyze(auditResults, standard, pageUrl, pageHtml);
+  res.json(analysis);
+});
+
+httpServer.post('/crawl-and-audit', async (req, res) => {
+  // Alternative: server-side crawl for when extension crawl isn't sufficient
+});
+
+// Start both
+const transport = new StdioServerTransport();
+await mcpServer.connect(transport);
+httpServer.listen(3100);
+```
+
+### 4.2 Deep Analysis Engine (The AI Differentiator)
+
+This is where the LLM integration happens — the part that makes this more than another axe-core wrapper.
+
+```typescript
+// src/engines/deep-analyzer.ts
+
+async function deepAnalyze(
+  axeResults: AxeResults,
+  standard: string,
+  pageUrl: string,
+  pageHtml: string
+): Promise<DeepAnalysisResult> {
+
+  // 1. Group violations by WCAG criterion
+  const grouped = groupByCriterion(axeResults.violations, standard);
+
+  // 2. For each group, prepare context for LLM analysis
+  const enrichedFindings = await Promise.all(
+    grouped.map(async (group) => {
+      // Extract surrounding HTML context for each violation node
+      const contexts = group.nodes.map(node => extractContext(pageHtml, node.target));
+
+      // Call Claude API for contextual analysis
+      const analysis = await callClaude({
+        system: ACCESSIBILITY_EXPERT_PROMPT,
+        messages: [{
+          role: 'user',
+          content: `
+            Standard: ${standard}
+            WCAG Criterion: ${group.criterion.id} — ${group.criterion.name}
+            Page URL: ${pageUrl}
+            
+            Violations found by axe-core:
+            ${JSON.stringify(group.violations, null, 2)}
+            
+            HTML context around each violation:
+            ${contexts.map((c, i) => `--- Instance ${i + 1} ---\n${c}`).join('\n')}
+            
+            Provide:
+            1. Why this matters for ${standard} compliance (plain English, not just the spec language)
+            2. Assessment of severity in context (is this a critical user-blocking issue or a technical gap?)
+            3. Specific fix recommendation with code
+            4. Whether this could have legal implications under ${standard}
+          `
+        }]
+      });
+
+      return { ...group, aiAnalysis: analysis };
+    })
+  );
+
+  // 3. Additional LLM-only checks that axe-core misses
+  const llmOnlyFindings = await performLlmAnalysis(pageHtml, standard);
+  // - Alt text quality assessment
+  // - Content readability / plain language
+  // - Logical heading structure (semantic, not just hierarchy)
+  // - Focus order recommendations
+  // - ARIA pattern completeness for custom widgets
+
+  // 4. Generate executive summary
+  const summary = await generateSummary(enrichedFindings, llmOnlyFindings, standard);
+
+  return { enrichedFindings, llmOnlyFindings, summary, score: calculateScore(...) };
+}
+```
+
+### 4.3 MCP Tools (Codebase Analysis — Same as Original Plan)
+
+The MCP server retains all the tools from the original architecture for codebase-mode operation:
+
+| Tool | Purpose |
+|---|---|
+| `configure_audit` | Set standard, level, exclusions |
+| `analyze_codebase` | Static analysis of Angular/React/Vue/WP project |
+| `generate_report` | Structured compliance report |
+| `generate_fix_plan` | Prioritized remediation plan |
+| `apply_fix` | Apply a specific code fix |
+
+The `crawl_site`, `audit_url`, and `audit_site` tools are retained but become secondary — the Chrome extension handles live site auditing more naturally. These tools still serve users who prefer the pure CLI/Claude workflow.
+
+### 4.4 LLM Integration Points (Interview Talking Points)
+
+Each of these is a concrete example of AI engineering you can discuss:
+
+**a) Contextual alt text evaluation**
+axe-core flags `alt=""` on a meaningful image as a pass (attribute exists). The LLM receives the `<img>` context + surrounding HTML and evaluates whether the alt text is actually descriptive. This is a classic "rules engine finds structure, LLM evaluates semantics" pattern.
+
+**b) ARIA pattern completeness**
+axe-core checks individual ARIA attributes. The LLM looks at the full component and assesses whether the ARIA pattern is complete — e.g., a custom combobox might have `role="combobox"` and `aria-expanded` (axe passes) but be missing `aria-activedescendant` and keyboard arrow navigation (LLM catches).
+
+**c) Framework-aware fix generation**
+When generating fixes, the system prompt includes framework context. For an Angular component, it knows to suggest `cdkTrapFocus` from `@angular/cdk/a11y` rather than a manual `focusin`/`focusout` handler. For React, it suggests `useRef` + `useEffect` focus management patterns rather than DOM manipulation.
+
+**d) Legal risk assessment**
+The LLM maps findings against known enforcement patterns — e.g., missing form labels on a checkout flow have higher ADA legal risk than a decorative image without alt text on a blog post, because DOJ enforcement has historically prioritized transactional barriers.
+
+**e) Standards-grounded responses (RAG-adjacent pattern)**
+The standards-mapping JSON acts as a knowledge base. Rather than relying on Claude's training data for WCAG specifics, the system prompt includes the exact criterion text, success techniques, and common failures from the mapping file. This grounds responses in authoritative spec language and prevents hallucinated criterion numbers.
+
+---
+
+## 5. Remediation & Implementation Engine (Core Use Case)
+
+This is the section that turns AccessibleAI from an audit tool into a **fix-it tool**. The remediation engine is the bridge between "here are your violations" and "here's your compliant codebase."
+
+### 5.1 The Fundamental Challenge: Runtime Violations → Source Code
+
+When axe-core finds a violation on a live page, it gives you a CSS selector like `#checkout-form > div:nth-child(3) > input`. But the developer needs to know that this maps to `checkout-form.component.html` line 47, inside a `*ngFor` loop. This **runtime-to-source mapping** is the hard problem.
+
+**Source Mapping Strategy by Framework:**
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    RUNTIME → SOURCE MAPPING                             │
+│                                                                         │
+│  Angular:                                                               │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ 1. axe selector: "#app-checkout-form input.email-field"        │    │
+│  │ 2. Extract component tag: <app-checkout-form>                  │    │
+│  │ 3. Scan project for @Component({ selector: 'app-checkout-     │    │
+│  │    form' }) → finds checkout-form.component.ts                 │    │
+│  │ 4. Read templateUrl → checkout-form.component.html             │    │
+│  │ 5. Parse template AST → locate input.email-field               │    │
+│  │ 6. Return: file, line number, surrounding template context     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  React:                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ 1. axe selector: "[data-testid='email-input']" or class-based  │    │
+│  │ 2. Search JSX/TSX for matching data-testid or className        │    │
+│  │ 3. If no match, use component hierarchy from React DevTools    │    │
+│  │    data attributes (_reactFiber) → map to component file       │    │
+│  │ 4. Parse JSX AST → locate the element                         │    │
+│  │ 5. Return: file, line number, surrounding JSX context          │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Vue:                                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ 1. axe selector → extract component-scoped data attributes     │    │
+│  │    (data-v-xxxx) → map to SFC file via scope ID                │    │
+│  │ 2. Parse <template> section of .vue SFC                        │    │
+│  │ 3. Locate element in template AST                              │    │
+│  │ 4. Return: file, line number, surrounding template context     │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  WordPress:                                                             │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ 1. axe selector → identify if it's theme, plugin, or core      │    │
+│  │ 2. Match HTML patterns to PHP template partials (header.php,   │    │
+│  │    footer.php, template-parts/*)                                │    │
+│  │ 3. For Gutenberg blocks: map to block registration source      │    │
+│  │ 4. Return: file, approximate location, PHP/HTML context        │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                         │
+│  Static HTML:                                                           │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ 1. Direct mapping — axe selector matches source HTML           │    │
+│  │ 2. Match by file path from URL structure                       │    │
+│  │ 3. Return: file, line number, exact source location            │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Unified Issue Format
+
+Both runtime (axe-core) and static (ESLint/AST) findings are normalized into a single issue format before entering the remediation pipeline:
+
+```typescript
+interface AccessibilityIssue {
+  id: string;                          // unique issue ID (e.g., "issue-001")
+  source: "runtime" | "static";       // where it was detected
+  
+  // WCAG mapping
+  wcagCriteria: string[];              // ["1.1.1", "4.1.2"]
+  standard: string;                    // "ada", "wcag-2.1-aa", etc.
+  impact: "critical" | "serious" | "moderate" | "minor";
+  
+  // What's wrong
+  ruleId: string;                      // axe rule ID or ESLint rule ID
+  description: string;                 // human-readable description
+  helpUrl: string;                     // link to rule documentation
+  
+  // Where it is (source code location — the critical field)
+  sourceLocation: {
+    filePath: string;                  // "src/app/checkout/checkout-form.component.html"
+    startLine: number;
+    endLine: number;
+    column?: number;
+    framework: FrameworkType;
+    componentName?: string;            // "CheckoutFormComponent"
+  };
+  
+  // What the problematic code looks like
+  codeSnippet: {
+    before: string;                    // lines before the violation (context)
+    violating: string;                 // the actual violating code
+    after: string;                     // lines after (context)
+  };
+  
+  // Runtime context (only for runtime-detected issues)
+  runtimeContext?: {
+    pageUrl: string;
+    cssSelector: string;               // axe target selector
+    renderedHtml: string;              // the DOM node as rendered
+    screenshot?: string;               // base64 screenshot of the element
+  };
+  
+  // Remediation metadata
+  remediation: {
+    automationLevel: "auto" | "llm-assisted" | "manual-review";
+    fixTemplateId?: string;            // if an auto-fix template exists
+    estimatedEffort: "trivial" | "small" | "medium" | "large";
+    groupId?: string;                  // groups issues with the same root cause
+  };
+}
+```
+
+### 5.3 Fix Plan Generation
+
+The `generate_fix_plan` tool produces a phased implementation plan that a developer (or Claude Code) can execute systematically.
+
+**Prioritization Algorithm:**
+
+```typescript
+function calculatePriority(issue: AccessibilityIssue, config: PlanConfig): number {
+  const weights = PRIORITY_WEIGHTS[config.prioritizeBy];
+  
+  // Impact score: how much this affects users
+  const impactScore = { critical: 40, serious: 30, moderate: 20, minor: 10 }[issue.impact];
+  
+  // Legal risk: higher for standards with active enforcement
+  const legalScore = calculateLegalRisk(issue, config.standard);
+  // e.g., form input violations under ADA score higher than decorative image issues
+  // checkout/payment flows score higher than marketing pages
+  
+  // Effort score: inverse — easy fixes get higher priority (quick wins)
+  const effortScore = { trivial: 40, small: 30, medium: 20, large: 10 }[issue.remediation.estimatedEffort];
+  
+  // Blast radius: how many pages/components this affects
+  const blastRadius = issue.remediation.groupId 
+    ? getGroupSize(issue.remediation.groupId) * 5
+    : 5;
+  
+  return (impactScore * weights.impact)
+       + (legalScore * weights.legal)
+       + (effortScore * weights.effort)
+       + (blastRadius * weights.reach);
+}
+```
+
+**Fix Plan Structure:**
+
+```typescript
+interface FixPlan {
+  id: string;
+  standard: string;
+  generatedAt: string;
+  summary: {
+    totalIssues: number;
+    autoFixable: number;
+    llmAssisted: number;
+    manualReview: number;
+    estimatedTotalEffort: string;        // e.g., "3-5 developer days"
+    complianceScoreBefore: number;
+    projectedScoreAfter: number;
+  };
+  
+  phases: FixPhase[];
+}
+
+interface FixPhase {
+  phase: number;
+  name: string;                          // e.g., "Quick Wins — Automated Fixes"
+  description: string;
+  estimatedEffort: string;
+  issues: FixItem[];
+}
+
+interface FixItem {
+  issueId: string;
+  priority: number;
+  issue: AccessibilityIssue;
+  
+  // The actual fix specification
+  fix: {
+    type: "auto-template" | "llm-generated" | "manual-guidance";
+    
+    // For auto-template and llm-generated:
+    changes?: FileChange[];
+    
+    // For manual-guidance:
+    guidance?: string;
+    
+    // What this fix resolves
+    resolvesCriteria: string[];          // WCAG criteria this fix addresses
+    resolvesIssueIds: string[];          // other issues this fix also resolves (grouped root cause)
+  };
+  
+  // Verification
+  verification: {
+    rerunRules: string[];                // axe/ESLint rules to re-run after fix
+    manualCheckDescription?: string;     // what a human should verify
+  };
+}
+
+interface FileChange {
+  filePath: string;
+  changeType: "modify" | "create" | "delete";
+  diff: string;                          // unified diff format
+  description: string;                   // what this change does and why
+  before: string;                        // full content before (for rollback)
+  after: string;                         // full content after
+}
+```
+
+**Example Fix Plan Output:**
+
+```markdown
+# Accessibility Remediation Plan — ADA Compliance
+## Project: checkout-app (Angular 17)
+## Generated: 2026-08-09
+
+### Summary
+- Total issues: 47
+- Auto-fixable: 18 (38%)
+- LLM-assisted: 21 (45%)
+- Manual review: 8 (17%)
+- Estimated effort: 4-6 developer days
+- Current compliance: 62% → Projected after fixes: 94%
+
+---
+
+### Phase 1: Quick Wins — Automated Fixes (Est. 2 hours)
+*18 issues resolved. These are mechanical fixes with zero ambiguity.*
+
+1. **[CRITICAL] Add missing form labels — 7 instances**
+   Files: checkout-form.component.html (×3), payment.component.html (×2),
+          shipping-address.component.html (×2)
+   WCAG: 1.3.1, 4.1.2 | Auto-fix template: form-label-association
+   
+2. **[CRITICAL] Add lang attribute to <html> — 1 instance**
+   File: index.html
+   WCAG: 3.1.1 | Auto-fix template: html-lang
+
+3. **[SERIOUS] Add alt="" to decorative images — 6 instances**
+   Files: header.component.html (×2), footer.component.html (×4)
+   WCAG: 1.1.1 | Auto-fix template: decorative-alt
+
+4. **[MODERATE] Fix heading hierarchy gaps — 4 instances**
+   Files: product-list.component.html, cart.component.html,
+          order-summary.component.html, help-page.component.html
+   WCAG: 1.3.1 | Auto-fix template: heading-hierarchy
+
+---
+
+### Phase 2: LLM-Assisted Fixes (Est. 2-3 days)
+*21 issues resolved. Claude generates framework-specific fixes with context.*
+
+5. **[CRITICAL] Add keyboard navigation to custom dropdown — 3 components**
+   Files: product-filter.component.ts/html, sort-selector.component.ts/html,
+          quantity-picker.component.ts/html
+   WCAG: 2.1.1, 4.1.2
+   Fix: Replace custom dropdown with Angular CDK Listbox, or add
+        role="listbox", aria-activedescendant, arrow key handlers
+   [Apply Fix] [Preview Diff] [Skip]
+
+6. **[CRITICAL] Write meaningful alt text for product images — 12 instances**
+   File: product-card.component.html
+   WCAG: 1.1.1
+   Fix: Bind alt to product.name + product.category
+        (e.g., alt="Blue running shoes — Nike Air Max 90")
+   [Apply Fix] [Preview Diff] [Skip]
+
+...
+
+---
+
+### Phase 3: Manual Review Required (Est. 1-2 days)
+*8 issues flagged. Need human judgment.*
+
+12. **[SERIOUS] Focus management after route navigation — all routes**
+    WCAG: 2.4.3
+    Guidance: Implement a route-change focus strategy. Recommend
+    using Angular's TitleStrategy + a focus-on-main-content directive.
+    See implementation pattern: [detailed code example]
+```
+
+### 5.4 Fix Application Engine
+
+The engine that actually modifies source code. It operates at three levels:
+
+**Level 1 — Template-Based Auto-Fixes (Deterministic, No LLM)**
+
+```typescript
+// src/engines/remediation/templates/form-label-association.ts
+
+const FormLabelFix: FixTemplate = {
+  id: "form-label-association",
+  wcagCriteria: ["1.3.1", "4.1.2"],
+  applicableTo: ["angular", "react", "vue", "html"],
+  
+  detect(ast: TemplateAST): FixTarget[] {
+    // Find <input>, <select>, <textarea> without:
+    //   - an associated <label for="...">
+    //   - an aria-label attribute
+    //   - an aria-labelledby attribute
+    //   - a wrapping <label> element
+    return findUnlabeledFormControls(ast);
+  },
+  
+  transform(target: FixTarget, framework: FrameworkType): FileChange {
+    switch (framework) {
+      case "angular":
+        // If the input has an id, add <label [attr.for]="'inputId'">
+        // If no id, generate one and add both id and label
+        // Respect existing *ngIf/*ngFor context
+        return generateAngularLabelFix(target);
+        
+      case "react":
+        // Use htmlFor in JSX
+        // If inside a .map(), ensure unique ids with index/key
+        return generateReactLabelFix(target);
+        
+      case "vue":
+        // Use :for binding in template
+        return generateVueLabelFix(target);
+        
+      default:
+        return generateHtmlLabelFix(target);
+    }
+  },
+  
+  validate(change: FileChange): boolean {
+    // Parse the modified code and verify:
+    // 1. Every input now has a label association
+    // 2. The template still parses without errors
+    // 3. No duplicate IDs were introduced
+    return reparse(change.after).isValid && allInputsLabeled(change.after);
+  }
+};
+```
+
+**Level 2 — LLM-Generated Fixes (Claude Generates, Engine Applies)**
+
+For complex fixes that require understanding context, the engine prepares a rich prompt and lets Claude generate the code:
+
+```typescript
+// src/engines/remediation/llm-fix-generator.ts
+
+async function generateLlmFix(
+  issue: AccessibilityIssue,
+  projectContext: ProjectContext
+): Promise<FileChange[]> {
+  
+  // 1. Gather context the LLM needs
+  const context = {
+    // The violating file + surrounding files (imports, parent component, service)
+    fileContent: await readFile(issue.sourceLocation.filePath),
+    relatedFiles: await gatherRelatedFiles(issue.sourceLocation),
+    
+    // Framework-specific context
+    framework: projectContext.framework,
+    frameworkVersion: projectContext.frameworkVersion,
+    
+    // Design system / component library in use
+    uiLibrary: projectContext.uiLibrary,  // e.g., "Angular Material 17.1"
+    
+    // Project conventions (detected from existing code patterns)
+    conventions: {
+      namingPattern: projectContext.namingConvention,      // kebab-case, camelCase
+      testPattern: projectContext.hasTests ? "co-located .spec.ts" : "none",
+      a11yImports: projectContext.existingA11yImports,     // already uses CDK a11y?
+    },
+    
+    // The specific WCAG criterion with full text
+    criterion: getFullCriterionText(issue.wcagCriteria),
+    
+    // What other fixes have already been applied in this session
+    priorFixes: getAppliedFixesForFile(issue.sourceLocation.filePath),
+  };
+  
+  // 2. Generate fix via Claude
+  const response = await callClaude({
+    system: `You are an accessibility remediation engine. You produce precise code changes 
+             for ${context.framework} ${context.frameworkVersion} projects.
+             
+             Rules:
+             - Output ONLY the modified code sections, not the entire file
+             - Preserve existing code style and conventions
+             - Use framework-idiomatic patterns (e.g., CDK a11y for Angular, not raw DOM)
+             - If the project already uses ${context.uiLibrary}, prefer its accessible components
+             - Consider the component lifecycle — don't add DOM manipulation in Angular templates
+             - Include any necessary imports
+             - Explain each change in a brief comment`,
+    messages: [{
+      role: 'user',
+      content: `
+        Fix this accessibility violation:
+        
+        Issue: ${issue.description}
+        WCAG Criterion: ${context.criterion}
+        Impact: ${issue.impact}
+        
+        Current code (${issue.sourceLocation.filePath}):
+        \`\`\`
+        ${context.fileContent}
+        \`\`\`
+        
+        Violating section (line ${issue.sourceLocation.startLine}-${issue.sourceLocation.endLine}):
+        \`\`\`
+        ${issue.codeSnippet.violating}
+        \`\`\`
+        
+        Related files: ${JSON.stringify(context.relatedFiles.map(f => f.path))}
+        Project conventions: ${JSON.stringify(context.conventions)}
+        
+        Previously applied fixes in this file: ${JSON.stringify(context.priorFixes)}
+        
+        Respond with JSON:
+        {
+          "changes": [
+            {
+              "filePath": "path/to/file",
+              "searchBlock": "exact code to find (multi-line OK)",
+              "replaceBlock": "replacement code",
+              "description": "what this change does"
+            }
+          ],
+          "newFiles": [
+            {
+              "filePath": "path/to/new/file",
+              "content": "full file content",
+              "description": "why this file is needed"
+            }
+          ],
+          "newImports": [
+            {
+              "filePath": "path/to/file",
+              "importStatement": "import { LiveAnnouncer } from '@angular/cdk/a11y'"
+            }
+          ],
+          "explanation": "brief explanation of the fix approach"
+        }
+      `
+    }]
+  });
+  
+  // 3. Parse and validate LLM response
+  const fixSpec = parseFixResponse(response);
+  
+  // 4. Apply changes to produce FileChange objects with diffs
+  const fileChanges = await applyFixSpec(fixSpec, context);
+  
+  // 5. Validate each change
+  for (const change of fileChanges) {
+    const valid = await validateChange(change, context);
+    if (!valid.ok) {
+      change.warnings = valid.warnings;  // flag issues without blocking
+    }
+  }
+  
+  return fileChanges;
+}
+```
+
+**Level 3 — Manual Review Guidance**
+
+For issues that can't be safely auto-fixed, the engine generates structured guidance:
+
+```typescript
+interface ManualReviewGuidance {
+  issueId: string;
+  title: string;
+  wcagCriteria: string[];
+  
+  // What the developer needs to do
+  steps: {
+    description: string;
+    filePath?: string;
+    codeExample?: string;         // suggested pattern, not an exact fix
+    testInstructions?: string;    // how to verify the fix works
+  }[];
+  
+  // Reference implementation
+  referencePattern?: {
+    description: string;
+    code: string;
+    source: string;               // where this pattern comes from
+  };
+  
+  // Screen reader testing instructions
+  screenReaderTest?: {
+    tool: "NVDA" | "VoiceOver" | "JAWS";
+    steps: string[];
+    expectedBehavior: string;
+  };
+}
+```
+
+### 5.5 The `apply_fix` Tool — Detailed Schema
+
+```typescript
+{
+  name: "apply_fix",
+  description: `Apply accessibility fixes to source files. Supports three modes:
+    - 'single': Apply one fix by ID (with preview)
+    - 'phase': Apply all fixes in a phase (batch)
+    - 'all-auto': Apply all auto-fixable issues at once
+    Returns diffs, updated compliance score, and any warnings.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      mode: {
+        type: "string",
+        enum: ["single", "phase", "all-auto"],
+        description: "Fix application scope"
+      },
+      fixId: {
+        type: "string",
+        description: "For single mode: the fix ID from the fix plan"
+      },
+      phaseNumber: {
+        type: "number",
+        description: "For phase mode: which phase to apply (1-based)"
+      },
+      dryRun: {
+        type: "boolean",
+        default: true,
+        description: "Preview changes without writing to disk. ALWAYS true on first call."
+      },
+      projectPath: {
+        type: "string",
+        description: "Root path of the project (for resolving relative file paths)"
+      }
+    },
+    required: ["mode", "projectPath"]
+  }
+}
+
+// Return type
+interface ApplyFixResult {
+  applied: {
+    fixId: string;
+    filePath: string;
+    diff: string;                    // unified diff
+    description: string;
+    status: "applied" | "skipped" | "failed";
+    failureReason?: string;
+  }[];
+  
+  summary: {
+    totalAttempted: number;
+    successfullyApplied: number;
+    skipped: number;
+    failed: number;
+  };
+  
+  // Re-run analysis on modified files
+  verification: {
+    issuesResolvedCount: number;
+    issuesRemainingCount: number;
+    newIssuesIntroduced: number;     // catches regressions
+    complianceScoreBefore: number;
+    complianceScoreAfter: number;
+  };
+  
+  // Warnings (not blocking but worth noting)
+  warnings: string[];
+  
+  // If dryRun was true
+  dryRunNote?: "No files were modified. Call again with dryRun: false to apply.";
+}
+```
+
+### 5.6 The `verify_fixes` Tool — Post-Remediation Validation
+
+```typescript
+{
+  name: "verify_fixes",
+  description: `Re-run accessibility analysis on files that were modified during remediation.
+    Compares before vs. after to confirm fixes resolved the targeted issues
+    and didn't introduce regressions. Can also build and serve the project
+    for runtime re-validation with axe-core.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      projectPath: { type: "string" },
+      verificationLevel: {
+        type: "string",
+        enum: ["static-only", "static-and-runtime"],
+        default: "static-only",
+        description: "'static-only' re-runs ESLint/AST checks. 'static-and-runtime' also builds the project, serves it locally, and re-runs axe-core."
+      },
+      fixIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Specific fix IDs to verify. Omit to verify all applied fixes."
+      }
+    },
+    required: ["projectPath"]
+  }
+}
+
+// Return type
+interface VerificationResult {
+  fixes: {
+    fixId: string;
+    issueId: string;
+    status: "resolved" | "partially-resolved" | "unresolved" | "regression";
+    details: string;
+  }[];
+  
+  complianceDelta: {
+    before: { score: number; violations: number; standard: string };
+    after: { score: number; violations: number; standard: string };
+    improvement: string;           // e.g., "+32% compliance (62% → 94%)"
+  };
+  
+  regressions: {
+    filePath: string;
+    newIssue: string;
+    introducedByFixId: string;
+    suggestion: string;
+  }[];
+  
+  // Summary suitable for a PR description or commit message
+  commitMessage: string;
+  // e.g., "fix(a11y): resolve 34 WCAG 2.1 AA violations across 12 components
+  //         - Add form label associations (7 instances)
+  //         - Add keyboard navigation to custom dropdowns (3 components)
+  //         - Fix color contrast in checkout flow (5 instances)
+  //         ...
+  //         Compliance: 62% → 94% (ADA/WCAG 2.1 AA)"
+}
+```
+
+### 5.7 End-to-End Remediation Workflows
+
+**Workflow A: Live Site → Source Code Fixes (Chrome Extension → Claude Code)**
+
+```
+1. Developer opens their deployed site in Chrome
+2. Clicks AccessibleAI → Quick Audit → sees 47 violations on ADA standard
+3. Clicks "Deep Analysis" → MCP server enriches findings with AI context
+4. Clicks "Export to Claude Code" → findings JSON is saved to project directory
+   as `.accessible-ai/audit-results.json`
+
+5. Developer opens their project in Claude Code (VS Code)
+6. Says: "I have accessibility audit results from AccessibleAI.
+          Map these to my source code and fix them."
+
+7. Claude Code invokes MCP tools in sequence:
+   a. configure_audit({ standard: "ada", projectPath: "/path/to/project" })
+   b. import_audit_results({ filePath: ".accessible-ai/audit-results.json" })
+      → maps runtime violations to source files
+   c. analyze_codebase({ projectPath: "/path/to/project" })
+      → adds static analysis findings to the issue set
+   d. generate_report({ auditId: "...", groupBy: "component" })
+      → produces compliance report grouped by component
+   e. generate_fix_plan({ auditId: "...", prioritizeBy: "impact" })
+      → produces phased remediation plan
+
+8. Claude presents the plan to the developer:
+   "I found 47 issues. 18 can be auto-fixed right now, 21 need
+    me to generate framework-specific code, and 8 need your judgment.
+    Want me to start with the auto-fixes?"
+
+9. Developer says "Yes, apply all auto-fixes, then show me the
+   LLM-assisted fixes one at a time"
+
+10. Claude Code invokes:
+    a. apply_fix({ mode: "all-auto", projectPath: "...", dryRun: true })
+       → shows diffs for all 18 auto-fixes
+    b. Developer reviews → "Looks good, apply them"
+    c. apply_fix({ mode: "all-auto", projectPath: "...", dryRun: false })
+       → files are modified on disk
+    
+11. For each LLM-assisted fix:
+    a. apply_fix({ mode: "single", fixId: "fix-005", dryRun: true })
+       → Claude generates the Angular-specific fix, shows diff
+    b. Developer reviews → "Apply" or "Modify" or "Skip"
+    c. If "Modify" → developer describes what they want different
+       → Claude regenerates the fix
+    d. apply_fix({ mode: "single", fixId: "fix-005", dryRun: false })
+
+12. After all fixes applied:
+    a. verify_fixes({ projectPath: "...", verificationLevel: "static-and-runtime" })
+       → builds project, runs axe-core on dev server, compares before/after
+    b. Returns: "Compliance improved from 62% to 94%. 2 issues need manual review."
+    c. Generates commit message and PR description
+```
+
+**Workflow B: Codebase-Only Analysis + Fix (Pure Claude Code)**
+
+```
+1. Developer in Claude Code says:
+   "Analyze this Angular project for Section 508 compliance
+    and fix everything you can"
+
+2. Claude Code invokes:
+   a. configure_audit({ standard: "section-508" })
+   b. analyze_codebase({ projectPath: ".", framework: "auto" })
+      → detects Angular 17, finds 35 issues across 28 files
+   c. generate_fix_plan({ auditId: "...", prioritizeBy: "effort" })
+      → phases: quick wins first, complex fixes second
+
+3. Claude applies fixes in order:
+   a. Phase 1 (auto-fixes): apply_fix({ mode: "phase", phaseNumber: 1 })
+   b. Phase 2 (LLM-assisted): iterates through each fix
+      - For each: generates framework-aware code, shows diff, applies on approval
+   c. Phase 3 (manual review): presents guidance for remaining issues
+
+4. Verification:
+   a. verify_fixes({ verificationLevel: "static-and-runtime" })
+   b. Claude reports the compliance delta
+   c. Generates commit message
+```
+
+**Workflow C: Chrome Extension Standalone Fix Suggestions (No Codebase Access)**
+
+For users who don't have the MCP server or Claude Code — the extension alone still provides value:
+
+```
+1. Quick Audit finds violations
+2. For each violation, the extension popup shows:
+   - What's wrong (plain English)
+   - WCAG criterion reference
+   - Code snippet of the violating element
+   - Generic fix suggestion (not project-specific, but actionable)
+   
+   Example:
+   ┌──────────────────────────────────────────────────┐
+   │ ⚠️ Missing form label                            │
+   │ WCAG 1.3.1 · ADA Critical                       │
+   │                                                  │
+   │ <input type="email" class="checkout-email">      │
+   │                                                  │
+   │ Fix: Associate a <label> with this input:        │
+   │                                                  │
+   │ <label for="checkout-email">Email address</label>│
+   │ <input type="email" id="checkout-email"          │
+   │        class="checkout-email">                   │
+   │                                                  │
+   │ [Copy Fix]  [Copy Selector]  [View in DevTools]  │
+   └──────────────────────────────────────────────────┘
+```
+
+### 5.8 Remediation Engine — Project Structure Addition
+
+```
+packages/mcp-server/src/engines/remediation/
+├── planner.ts                         # Fix prioritization + phasing
+├── source-mapper.ts                   # Runtime violation → source file mapping
+├── issue-normalizer.ts                # Unify runtime + static findings
+├── deduplicator.ts                    # Group issues by root cause
+├── fix-applier.ts                     # Orchestrates fix application
+├── fix-validator.ts                   # Post-fix validation + regression detection
+├── llm-fix-generator.ts              # Claude-powered fix generation
+├── commit-message-generator.ts        # Git-ready commit messages + PR descriptions
+├── project-context.ts                 # Detects framework, conventions, libraries
+│
+├── templates/                         # Deterministic auto-fix templates
+│   ├── registry.ts                    # Template registry + lookup
+│   ├── form-label-association.ts      # WCAG 1.3.1, 4.1.2
+│   ├── image-alt-text.ts             # WCAG 1.1.1 (decorative → alt="")
+│   ├── html-lang.ts                  # WCAG 3.1.1
+│   ├── heading-hierarchy.ts          # WCAG 1.3.1
+│   ├── link-purpose.ts              # WCAG 2.4.4 (empty links, "click here")
+│   ├── duplicate-id.ts              # WCAG 4.1.1
+│   ├── autocomplete.ts             # WCAG 1.3.5
+│   ├── tabindex-fix.ts             # WCAG 2.4.3 (positive tabindex → 0 or -1)
+│   └── meta-viewport.ts            # WCAG 1.4.4 (maximum-scale, user-scalable)
+│
+├── framework-fixers/                  # Framework-specific fix utilities
+│   ├── angular/
+│   │   ├── template-transformer.ts    # Angular template AST modification
+│   │   ├── component-modifier.ts      # Add imports, providers, lifecycle hooks
+│   │   ├── module-updater.ts          # Add CDK a11y imports to NgModule
+│   │   ├── cdk-patterns.ts           # LiveAnnouncer, FocusMonitor, FocusTrap patterns
+│   │   └── material-fixes.ts         # Angular Material component a11y patterns
+│   │
+│   ├── react/
+│   │   ├── jsx-transformer.ts         # JSX AST modification
+│   │   ├── hook-generator.ts          # Generate useFocus, useAnnounce hooks
+│   │   ├── ref-manager.ts            # Add refs for focus management
+│   │   └── aria-patterns.ts          # Common ARIA widget patterns in React
+│   │
+│   ├── vue/
+│   │   ├── sfc-transformer.ts         # Vue SFC template modification
+│   │   ├── directive-generator.ts     # Custom a11y directives
+│   │   └── composable-generator.ts    # useA11y composables
+│   │
+│   └── wordpress/
+│       ├── template-fixer.ts          # PHP template modifications
+│       └── block-fixer.ts             # Gutenberg block a11y fixes
+│
+└── verification/
+    ├── static-verifier.ts             # Re-run ESLint on modified files
+    ├── runtime-verifier.ts            # Build + serve + axe-core re-audit
+    ├── regression-detector.ts         # Compare before/after issue sets
+    └── report-generator.ts            # Before/after compliance delta report
+```
+
+### 5.9 MCP Tool Inventory (Complete — Updated with Remediation Tools)
+
+```
+┌─────────────────────────────┬─────────────────────────────────────────────────────┐
+│ Tool                        │ Purpose                                             │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ CONFIGURATION                                       │
+│ configure_audit             │ Set standard, level, exclusions, thresholds          │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ ANALYSIS (Live Site — also available via extension)  │
+│ crawl_site                  │ Discover all pages from a root URL                   │
+│ audit_url                   │ Runtime a11y audit of a single URL via axe-core      │
+│ audit_site                  │ Orchestrated crawl + audit of all discovered pages   │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ ANALYSIS (Codebase)                                  │
+│ analyze_codebase            │ Static analysis of frontend project source code      │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ BRIDGE (Live Site → Codebase)                        │
+│ import_audit_results        │ Import Chrome Extension audit results into session   │
+│ map_violations_to_source    │ Map runtime violations to source file locations      │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ REPORTING                                            │
+│ generate_report             │ Structured compliance report (MD / HTML / JSON)      │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ REMEDIATION                                          │
+│ generate_fix_plan           │ Prioritized, phased implementation plan              │
+│ apply_fix                   │ Apply fixes (single / phase / all-auto + dry-run)    │
+│ verify_fixes                │ Re-run analysis, compare before/after, catch regress │
+├─────────────────────────────┼─────────────────────────────────────────────────────┤
+│                             │ UTILITIES                                            │
+│ get_audit_status            │ Check progress of long-running audits                │
+│ get_fix_history             │ List all applied fixes with diffs in current session  │
+│ rollback_fix                │ Revert a specific applied fix to its original state   │
+└─────────────────────────────┴─────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. DevTools Panel (Bonus Interview Feature)
+
+A DevTools panel that shows the **accessibility tree** alongside the DOM tree — something Chrome's built-in accessibility inspector does, but enriched with violation annotations and AI suggestions.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  AccessibleAI Panel                            [WCAG 2.1 AA ▾]  │
+├────────────────────┬────────────────────────────────────┤
+│  Accessibility     │  Selected Element                  │
+│  Tree              │                                    │
+│                    │  <button class="checkout-btn">     │
+│  ▼ document        │                                    │
+│    ▼ banner        │  Role: button                      │
+│      ▶ navigation  │  Name: "" ⚠️ MISSING               │
+│    ▼ main          │  Focusable: yes                    │
+│      ▶ heading (1) │  Keyboard: click only ⚠️           │
+│      ▼ form        │                                    │
+│        ▶ textbox   │  ┌─────────────────────────────┐   │
+│        ▶ textbox   │  │ VIOLATIONS                  │   │
+│        ▶ button ⚠️ │  │                             │   │
+│      ▶ region      │  │ 4.1.2 Name, Role, Value     │   │
+│    ▶ contentinfo   │  │ Button has no accessible name│   │
+│                    │  │                             │   │
+│                    │  │ 🤖 AI Suggestion:            │   │
+│                    │  │ Add aria-label="Proceed to  │   │
+│                    │  │ checkout" or use visible text│   │
+│                    │  │ content inside the button.   │   │
+│                    │  └─────────────────────────────┘   │
+└────────────────────┴────────────────────────────────────┘
+```
+
+This panel uses `chrome.devtools.inspectedWindow.eval()` to access the page's DOM and the `Accessibility` domain of the Chrome DevTools Protocol for the accessibility tree.
+
+---
+
+## 7. Standards Mapping Layer (Shared Between Extension and MCP Server)
+
+This is an npm package shared between both projects.
+
+```
+@accessible-ai/standards/
+├── package.json
+├── src/
+│   ├── index.ts
+│   ├── mappings.json              # Complete WCAG ↔ standard ↔ axe-core mapping
+│   ├── resolver.ts                # Standard → active rule set
+│   ├── criteria.ts                # WCAG criterion metadata
+│   ├── types.ts                   # Shared interfaces
+│   └── license/
+│       ├── validator.ts           # HMAC-based license key validation
+│       ├── types.ts               # LicenseValidation, LicenseTier, FeatureFlag types
+│       └── features.ts            # Feature flag definitions + tier → feature mapping
+└── tests/
+    ├── resolver.test.ts
+    └── license-validator.test.ts
+```
+
+Shared as a local workspace package (monorepo) or published to npm. Both the extension and the MCP server import from it. Single source of truth for "ADA means WCAG 2.1 AA means these axe-core tags" and for license validation logic.
+
+---
+
+## 8. License & Tier System
+
+### Why License Gating
+
+The Deep Analysis, Codebase Audit, and Remediation features invoke the Claude API, which has real per-call cost. Free-tier users get the full axe-core-based Quick Audit (zero marginal cost); paid features are gated behind a license key.
+
+### Key Format
+
+```
+AAI-{TIER}-{PAYLOAD_BASE64URL}.{HMAC_SIGNATURE}
+
+Example:
+AAI-PRO-eyJlIjoicmFnaH...MX0.XRLHnM7X4JVhEzwK
+│   │    │                      │
+│   │    │                      └── HMAC-SHA256 (truncated 16 chars)
+│   │    └── Base64URL JSON: { email, tier, features[], issuedAt, expiresAt }
+│   └── Tier: PRO | TEAM | TRIAL
+└── Prefix
+```
+
+### Tier & Feature Matrix
+
+| Feature | Free | TRIAL | PRO | TEAM |
+|---|---|---|---|---|
+| Quick Audit (single page) | Yes | Yes | Yes | Yes |
+| Page overlay + violation highlights | Yes | Yes | Yes | Yes |
+| Standard picker (WCAG/ADA/508/EAA) | Yes | Yes | Yes | Yes |
+| Basic JSON report export | Yes | Yes | Yes | Yes |
+| Site crawl (up to 5 pages) | Yes | Yes | Yes | Yes |
+| **Deep Analysis (LLM)** | No | Yes | Yes | Yes |
+| Site crawl (unlimited) | No | No | Yes | Yes |
+| **Codebase Audit** | No | No | Yes | Yes |
+| **Remediation + Fix Application** | No | No | Yes | Yes |
+| HTML/PDF compliance report export | No | No | Yes | Yes |
+| Priority support | No | No | No | Yes |
+
+### Validation — Offline-First
+
+The key is **self-validating** via HMAC-SHA256 signature. No license server required — the extension and MCP server verify the key locally by recomputing the HMAC and comparing signatures. This is critical for developer tools that must work offline and behind corporate firewalls.
+
+- **Chrome Extension:** Validates using a build-time-embedded secret (via webpack DefinePlugin). Key stored in `chrome.storage.sync` (syncs across Chrome instances).
+- **MCP Server:** Validates using `LICENSE_SECRET` environment variable. Key read from `LICENSE_KEY` env or `~/.accessible-ai/license.key` file.
+- **Key Generation:** Admin-only CLI tool (`tools/generate-license.ts`), never shipped to users.
+
+### License Gate Integration Points
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     FEATURE REQUEST                          │
+│                          │                                   │
+│                          ▼                                   │
+│                  ┌───────────────┐                           │
+│                  │ Is feature in │──── Yes ──► Execute       │
+│                  │ FREE_FEATURES?│                           │
+│                  └───────┬───────┘                           │
+│                     No   │                                   │
+│                          ▼                                   │
+│                  ┌───────────────┐                           │
+│                  │ License key   │──── No ──► Show upgrade   │
+│                  │ present?      │           prompt           │
+│                  └───────┬───────┘                           │
+│                    Yes   │                                   │
+│                          ▼                                   │
+│                  ┌───────────────┐                           │
+│                  │ HMAC valid?   │──── No ──► "Invalid key"  │
+│                  │ Not expired?  │                           │
+│                  └───────┬───────┘                           │
+│                    Yes   │                                   │
+│                          ▼                                   │
+│                  ┌───────────────┐                           │
+│                  │ Feature in    │──── No ──► "Upgrade to    │
+│                  │ tier's flags? │           PRO for this"    │
+│                  └───────┬───────┘                           │
+│                    Yes   │                                   │
+│                          ▼                                   │
+│                     Execute feature                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Security Notes
+
+The HMAC secret embedded in the Chrome extension is extractable by anyone who unpacks the `.crx`. This is acceptable for a developer tool at this price point — the effort to reverse-engineer the key format exceeds the license cost. If real protection is needed later, add a lightweight activation server (Cloudflare Worker + KV) that the extension pings once on key entry, not on every use.
+
+For full license system details including the validator code, generation CLI, and scaling roadmap (offline-only → activation server → self-service portal), see `a11y-license-system.md`.
+
+---
+
+## 9. Monorepo Structure
+
+```
+accessible-ai/
+├── package.json                          # Workspace root
+├── turbo.json                            # Turborepo build orchestration
+├── tsconfig.base.json
+├── README.md
+├── LICENSE
+│
+├── tools/
+│   └── generate-license.ts              # Admin CLI: generate license keys (never shipped)
+│
+├── packages/
+│   ├── standards/                        # Shared: standards mapping + resolution + license
+│   │   ├── package.json                  # @accessible-ai/standards
+│   │   ├── src/
+│   │   │   ├── mappings.json
+│   │   │   ├── resolver.ts
+│   │   │   ├── criteria.ts
+│   │   │   ├── types.ts
+│   │   │   └── license/
+│   │   │       ├── validator.ts          # HMAC key validation (shared by extension + server)
+│   │   │       ├── types.ts              # LicenseValidation, LicenseTier, FeatureFlag
+│   │   │       └── features.ts           # Feature definitions, tier → feature mapping
+│   │   └── tests/
+│   │
+│   ├── extension/                        # Chrome Extension
+│   │   ├── manifest.json
+│   │   ├── package.json                  # @accessible-ai/extension
+│   │   ├── webpack.config.ts
+│   │   ├── src/
+│   │   │   ├── background/
+│   │   │   ├── content/
+│   │   │   ├── popup/                    # React popup
+│   │   │   │   └── components/
+│   │   │   │       ├── ...
+│   │   │   │       ├── LicenseSettings.tsx   # License key input + status display
+│   │   │   │       └── UpgradePrompt.tsx     # Shown when gated feature is accessed
+│   │   │   ├── sidepanel/
+│   │   │   ├── devtools/
+│   │   │   ├── core/
+│   │   │   │   ├── ...
+│   │   │   │   └── license-gate.ts       # checkFeatureAccess() for extension
+│   │   │   └── shared/
+│   │   ├── assets/
+│   │   └── tests/
+│   │
+│   └── mcp-server/                       # MCP Server + HTTP bridge
+│       ├── package.json                  # @accessible-ai/mcp-server
+│       ├── tsconfig.json
+│       ├── vitest.config.ts
+│       ├── src/
+│       │   ├── index.ts                  # Dual transport entry point
+│       │   ├── server.ts                 # MCP tool registration
+│       │   ├── http-bridge.ts            # Express server for extension
+│       │   │
+│       │   ├── middleware/
+│       │   │   └── license-gate.ts       # Express middleware + MCP tool guard
+│       │   │
+│       │   ├── engines/
+│       │   │   ├── deep-analyzer.ts      # LLM-powered analysis
+│       │   │   ├── static-analyzer/      # AST-based code analysis
+│       │   │   │   ├── analyzer.ts
+│       │   │   │   ├── framework-detector.ts
+│       │   │   │   ├── eslint-runner.ts
+│       │   │   │   └── framework-specific/
+│       │   │   │       ├── angular.ts
+│       │   │   │       ├── react.ts
+│       │   │   │       ├── vue.ts
+│       │   │   │       └── wordpress.ts
+│       │   │   │
+│       │   │   ├── report-generator/
+│       │   │   │   ├── generator.ts
+│       │   │   │   ├── scoring.ts
+│       │   │   │   └── templates/
+│       │   │   │
+│       │   │   └── remediation/
+│       │   │       ├── planner.ts
+│       │   │       ├── fix-applier.ts
+│       │   │       └── templates/
+│       │   │
+│       │   ├── tools/                    # MCP tool definitions
+│       │   │   ├── configure-audit.ts
+│       │   │   ├── analyze-codebase.ts
+│       │   │   ├── generate-report.ts
+│       │   │   ├── generate-fix-plan.ts
+│       │   │   └── apply-fix.ts
+│       │   │
+│       │   ├── llm/
+│       │   │   ├── client.ts             # Anthropic API client
+│       │   │   ├── prompts.ts            # System prompts for each analysis type
+│       │   │   └── response-parser.ts    # Structured output parsing
+│       │   │
+│       │   └── session/
+│       │       └── session-manager.ts
+│       │
+│       └── tests/
+│           ├── unit/
+│           ├── integration/
+│           └── fixtures/
+│
+├── docs/
+│   ├── architecture.md                   # This document
+│   ├── extension-user-guide.md
+│   ├── mcp-server-setup.md
+│   ├── standards-mapping.md
+│   └── adding-framework-support.md
+│
+└── examples/
+    ├── sample-angular-project/
+    ├── sample-react-project/
+    └── demo-site/                        # Intentionally inaccessible site for demos
+```
+
+---
+
+## 10. Implementation Phases (Revised for Impact-First Delivery)
+
+### Phase 1 — Chrome Extension MVP (Week 1-3)
+
+**Goal:** Installable extension that audits any page and shows results. This alone is demo-worthy.
+
+**Deliverables:**
+- Manifest V3 extension scaffolding with webpack build
+- axe-core injection via content script
+- Standards resolver (shared package) — WCAG 2.1 AA as default
+- Standard picker in popup (WCAG / ADA / Section 508 / EAA)
+- Results displayed in popup — violations grouped by severity, mapped to WCAG criteria
+- Page overlay — highlight violations on the live page
+- Score calculation and color-coded badge
+- Export report as JSON / Markdown
+
+**Demo milestone:** Install extension → click icon on any website → see score + violations overlaid on the page.
+
+### Phase 2 — Multi-Page Crawl + Report (Week 4-5)
+
+**Goal:** Audit an entire site, not just one page.
+
+**Deliverables:**
+- Service worker crawl orchestration (same-origin link extraction, dedup)
+- Background tab audit cycle
+- Aggregated results in side panel
+- Cross-page issue deduplication
+- HTML report export (styled, printable — suitable for compliance documentation)
+- Audit history in chrome.storage
+
+**Demo milestone:** "Audit Entire Site" on a 15-page site → side panel shows site-wide compliance score with per-page breakdown.
+
+### Phase 3 — MCP Server + Deep Analysis (Week 6-8)
+
+**Goal:** AI-powered analysis that goes beyond axe-core. This is the interview differentiator.
+
+**Deliverables:**
+- MCP server with dual transport (stdio + HTTP)
+- Standards package integrated
+- Deep analyzer engine — Claude API integration with accessibility-expert system prompt
+- Chrome extension "Deep Analysis" button → sends results to local MCP server
+- LLM-only checks: alt text quality, ARIA pattern completeness, semantic structure
+- Enhanced report with AI insights section
+- `configure_audit` and `analyze_codebase` MCP tools (start of codebase mode)
+
+**Demo milestone:** Quick Audit shows 15 violations → Deep Analysis reveals 5 additional semantic issues axe-core missed + provides contextual fix suggestions for each.
+
+### Phase 4 — Codebase Analysis + Static Analyzer (Week 9-10)
+
+**Goal:** Analyze frontend project source code at the AST level.
+
+**Deliverables:**
+- Framework auto-detection (Angular/React/Vue/WordPress/HTML from package.json + file structure)
+- Programmatic ESLint runner with dynamic config per framework
+- Custom AST rules beyond ESLint: ARIA validator, heading hierarchy, keyboard handler checker, form label auditor, route accessibility checker
+- Angular-specific analyzer (template parsing via `@angular/compiler`, CDK a11y usage detection)
+- React-specific analyzer (JSX via Babel, hook-based focus patterns)
+- Vue-specific analyzer (SFC template section parsing)
+- `analyze_codebase` MCP tool
+- Issue normalizer: unify runtime (axe-core) and static (ESLint/AST) findings into shared format
+- **Tests:** each framework analyzer against fixture projects with known violations
+
+**Demo milestone:** `analyze_codebase({ projectPath: "/path/to/angular-app" })` returns issues with file locations, WCAG mappings, and severity.
+
+### Phase 5 — Remediation Engine (Week 11-14)
+
+**Goal:** The full closed-loop — from findings to fixed code with verification. This is the highest-value phase.
+
+**Deliverables — Fix Planning:**
+- Source mapper: map runtime violations (CSS selectors) → source file locations per framework
+- Issue deduplicator: group issues sharing a root cause across pages/components
+- Priority calculator: impact × effort × legal risk × blast radius scoring
+- `generate_fix_plan` tool: produces phased plan (quick wins → LLM-assisted → manual review)
+- `import_audit_results` tool: import Chrome Extension findings into MCP session
+- `map_violations_to_source` tool: bridge runtime → source for imported results
+
+**Deliverables — Fix Application:**
+- Fix template registry with 10+ deterministic auto-fix templates (form labels, decorative alt, html lang, heading hierarchy, duplicate IDs, autocomplete, tabindex, meta viewport, link purpose, skip navigation)
+- Framework-specific template transformers: Angular template AST modification, React JSX AST modification, Vue SFC modification
+- LLM fix generator: prepares rich context (file content, related files, framework conventions, design system) and prompts Claude for framework-idiomatic fixes
+- `apply_fix` tool with three modes (single / phase / all-auto) and mandatory dry-run on first call
+- Diff generation in unified format for developer review
+
+**Deliverables — Fix Verification:**
+- `verify_fixes` tool: re-runs static analysis on modified files, compares before/after
+- Runtime re-verification: build project → serve locally → re-run axe-core → compare
+- Regression detector: flags new issues introduced by fixes
+- Compliance delta reporter: before/after score with breakdown
+- Commit message and PR description generator
+- `rollback_fix` and `get_fix_history` utility tools
+
+**Deliverables — Framework-Specific Fix Patterns:**
+- Angular: CDK a11y patterns (LiveAnnouncer, FocusMonitor, FocusTrap, cdkAriaDescribedBy), NgModule import updates, Angular Material component a11y best practices
+- React: useFocus/useAnnounce hook generation, ref-based focus management, ARIA widget patterns
+- Vue: custom a11y directive generation, useA11y composable patterns
+- WordPress: PHP template fixes, Gutenberg block a11y patterns
+
+**Tests:** end-to-end workflow on fixture projects — analyze → plan → apply → verify → confirm score improvement. Each auto-fix template tested against framework-specific fixture code.
+
+**Demo milestone:** Full Workflow A demo: import Chrome Extension results → map to source → generate plan showing "62% → 94% projected" → apply Phase 1 auto-fixes → apply Phase 2 LLM-assisted fixes one by one → verify → "Compliance: 62% → 94%. Here's your commit message."
+
+### Phase 6 — DevTools Panel + Polish (Week 15-16)
+
+**Goal:** Professional polish, DevTools integration, documentation.
+
+**Deliverables:**
+- DevTools panel with accessibility tree inspector
+- Element-level AI suggestions in DevTools
+- Comprehensive README with screenshots and GIFs (demo recordings)
+- User guide documentation for both extension and MCP server
+- Demo site (intentionally inaccessible Angular app) for consistent demo experience
+- Chrome Web Store listing preparation
+- npm publish for MCP server
+- GitHub repo with CI (lint, test, build) and release workflow
+
+**Demo milestone:** Full suite demo — extension overlay + DevTools panel + deep analysis + codebase fix + verification — in under 4 minutes.
+
+---
+
+## 11. Technology Stack Summary
+
+| Component | Technology | Rationale |
+|---|---|---|
+| Monorepo | Turborepo + npm workspaces | Fast builds, shared packages, familiar toolchain |
+| Extension UI | React + TypeScript | Quick component development for popup/sidepanel |
+| Extension build | Webpack 5 | Manifest V3 compatible, code splitting per entry point |
+| axe-core | Latest stable | Industry standard, zero false-positive policy |
+| MCP Server | @modelcontextprotocol/sdk + Express | Dual transport (stdio for Claude, HTTP for extension) |
+| LLM | Anthropic Claude API (claude-sonnet-4-6) | Cost-effective for per-violation analysis |
+| Static analysis | ESLint programmatic API | Framework plugin ecosystem |
+| AST parsing | TypeScript Compiler API + @angular/compiler + @babel/parser | Framework-native parsing |
+| Testing | Vitest (server) + Jest (extension) + Playwright (e2e) | Ecosystem-appropriate per package |
+| CI | GitHub Actions | Standard, free for public repos |
+
+---
+
+## 12. Dependency Map
+
+### Chrome Extension
+
+| Package | Purpose |
+|---|---|
+| `axe-core` | Accessibility rules engine (bundled with extension) |
+| `react`, `react-dom` | Popup + side panel UI |
+| `webpack`, `ts-loader` | Build pipeline |
+| `@accessible-ai/standards` | Shared standards mapping (workspace package) |
+
+### MCP Server
+
+| Package | Purpose |
+|---|---|
+| `@modelcontextprotocol/sdk` | MCP protocol implementation |
+| `express`, `cors` | HTTP bridge for Chrome extension |
+| `@anthropic-ai/sdk` | Claude API client |
+| `eslint` | Programmatic linting engine |
+| `eslint-plugin-jsx-a11y` | React a11y rules |
+| `@angular-eslint/eslint-plugin-template` | Angular a11y rules |
+| `eslint-plugin-vuejs-accessibility` | Vue a11y rules |
+| `typescript` | TypeScript Compiler API for AST |
+| `@angular/compiler` | Angular template parsing |
+| `@babel/parser` | JSX/TSX parsing |
+| `glob` | File discovery |
+| `diff` | Unified diff generation |
+| `zod` | Schema validation |
+| `@accessible-ai/standards` | Shared standards mapping |
+
+---
+
+## 13. Interview Talking Points — Technical Depth
+
+### "Walk me through the architecture"
+
+"It's a three-layer system. The Chrome extension is the user-facing layer — it injects axe-core into any live website and renders an accessibility overlay with violations mapped to WCAG criteria. For deeper analysis, it bridges to a locally-running MCP server over HTTP. The MCP server is where the AI intelligence lives — it takes axe-core's structural findings, combines them with the page's DOM context, and uses Claude to perform semantic analysis that rule engines can't do: evaluating alt text quality, assessing ARIA pattern completeness, generating framework-specific fix code. The same MCP server also handles codebase analysis through Claude Code, using AST-level static analysis with framework-specific parsers. The standards-mapping layer is shared between both — it resolves 'ADA compliance' to 'WCAG 2.1 AA success criteria' to 'these specific axe-core rules,' so the analysis engine runs once and reports are filtered per standard."
+
+### "What's the AI doing that axe-core can't?"
+
+"Three things. First, semantic evaluation — axe-core checks if an alt attribute exists, the LLM evaluates if the alt text actually describes the image meaningfully. Second, pattern completeness — axe-core validates individual ARIA attributes, the LLM looks at a complete custom widget and assesses whether the full interaction pattern is accessible (keyboard navigation, focus management, announcements). Third, contextual remediation — axe-core says 'this fails WCAG 1.1.1,' the LLM says 'here's the Angular-specific fix using CDK LiveAnnouncer and this is why the contrast issue only appears on mobile breakpoints.'"
+
+### "Why MCP instead of a REST API?"
+
+"MCP gives me something REST can't — the LLM client can orchestrate multi-step workflows using tools. 'Analyze this codebase, generate a report, create a fix plan prioritized by legal risk, then apply the top 5 fixes' is a single conversational instruction that Claude decomposes into sequential tool calls. With REST, I'd need to build that orchestration layer myself. MCP also means the server works with any MCP-compatible client without modification."
+
+### "How do you handle the different standards?"
+
+"Every accessibility standard — ADA, Section 508, EAA — ultimately maps to a subset of WCAG success criteria. ADA maps to WCAG 2.1 AA per the DOJ's 2024 rule, Section 508 maps to WCAG 2.0 AA via the ICT refresh, EAA maps to EN 301 549 which references WCAG 2.1 AA with additional non-web requirements. I maintain a curated JSON mapping file that resolves each standard to its WCAG criteria, and each criterion to its axe-core rule IDs and ESLint rule IDs. The analysis runs once against the full rule set; the report filters by standard. Adding a new standard is just adding a mapping entry."
+
+### "How does the remediation actually work? Can it really fix code automatically?"
+
+"It's a three-tier system. Tier one is fully automated template-based fixes — things like missing form label associations, decorative images without `alt=""`, missing `lang` attribute on `<html>`. These are deterministic AST transforms — I parse the template, locate the violating node, apply a known-correct transformation, and validate that the output still parses. About 35-40% of typical violations fall here.
+
+Tier two is LLM-assisted fixes. The engine gathers rich context — the violating file, its imports, parent components, what UI library the project uses, what coding conventions it follows — and sends that to Claude with a system prompt tuned for accessibility remediation. The key insight is framework-awareness: for an Angular project using Material, it knows to suggest `cdkTrapFocus` from `@angular/cdk/a11y` instead of a manual focus trap. For React, it generates `useRef` + `useEffect` patterns. The LLM returns structured JSON with search/replace blocks, which the engine applies and validates. About 40-45% of violations.
+
+Tier three is manual review guidance — issues where automated fixing would be unsafe or meaningless, like judging whether content reading order makes sense, or whether video captions are adequate. The engine provides structured guidance with code examples and screen reader testing instructions.
+
+The hardest engineering problem was the runtime-to-source mapping — when axe-core finds a violation on a live page using a CSS selector like `#checkout-form input.email-field`, I need to map that back to `checkout-form.component.html` line 47. For Angular, I extract the component selector from the rendered DOM, scan the project for the matching `@Component({ selector })`, follow the `templateUrl`, and parse the template AST to locate the element. Each framework has its own mapping strategy."
+
+### "How do you prevent the fixes from breaking things?"
+
+"Every fix goes through a mandatory dry-run first — the tool returns unified diffs without writing to disk. After the developer approves and fixes are applied, the `verify_fixes` tool re-runs the relevant analysis rules on the modified files and compares before/after. It catches three things: whether the targeted violation was actually resolved, whether any new violations were introduced as regressions, and the overall compliance score delta. For runtime verification, it can also build the project, serve it locally, and re-run axe-core against the dev server. And there's a `rollback_fix` tool that reverts any individual fix using the stored before-state."
+
+---
+
+## 14. Risk Register
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Manifest V3 service worker limitations (5-min timeout, no persistent state) | Crawl interruption on large sites | Chunk crawl into batches, persist state to chrome.storage between chunks |
+| Claude API costs for per-violation analysis | Expensive for large sites | Batch violations by criterion, cache LLM responses for identical patterns, use claude-haiku for classification-only tasks |
+| axe-core bundle size (~500KB) impacts extension load | Slow injection | Lazy-load axe-core only when audit is triggered, not on every page load |
+| Cross-origin iframes can't be audited | Incomplete coverage | Document limitation clearly; audit what's accessible, flag iframes as "manual review" |
+| Extension review process (Chrome Web Store) | Delays distribution | Submit early with minimal permissions; `<all_urls>` requires justification — prepare a clear explanation |
+| Shadow DOM in web components | axe-core may miss violations inside shadow roots | Configure `axe.run` with `{ iframes: true, shadowDom: true }` (supported since axe-core 4.x) |
+| Runtime → source mapping fails for highly dynamic content | Violations can't be mapped to fixable source locations | Fall back to component-level mapping (identify the component, flag approximate location); allow manual path override in `apply_fix` |
+| LLM-generated fixes introduce subtle bugs | Broken builds, broken a11y in different state | Mandatory dry-run, post-fix validation re-running both ESLint and axe-core, regression detector, `rollback_fix` as safety net |
+| AST transforms break formatting / comments | Developer frustration, PR noise | Use framework-native printers (Angular compiler emit, Babel generator with `retainLines`), preserve comments explicitly during transforms |
+| Fix templates become stale as frameworks evolve | Wrong patterns suggested for newer framework versions | Version-gate templates (e.g., Angular 17+ uses `@if` not `*ngIf`), detect framework version and select appropriate template variant |
+| Multiple fixes touching the same file conflict | Corrupted output when fixes overlap | Apply fixes to the same file sequentially, re-parse AST between each, track cumulative line-number shifts |
+| Large monorepo projects exceed analysis capacity | Timeouts, incomplete results | Respect `include`/`exclude` glob patterns, analyze only changed files in CI mode, stream results progressively |
+
+---
+
+## 15. Future Enhancements (Post-V1)
+
+- **Firefox and Edge extension ports** (Manifest V3 is cross-browser)
+- **CI/CD GitHub Action** — run the MCP server in headless mode as a PR gate
+- **VPAT auto-generation** — produce Voluntary Product Accessibility Template from audit results
+- **Accessibility statement generator** — required by EAA, auto-generate from compliance report
+- **Historical dashboard** — track compliance score over time (chrome.storage + optional cloud sync)
+- **Team collaboration** — share audit results via shareable links
+- **Figma plugin** — catch accessibility issues at design time (color contrast, touch target size)
+- **VS Code extension** — lightweight wrapper that runs the MCP server's static analysis with in-editor annotations (if demand justifies the additional distribution surface)
