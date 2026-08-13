@@ -1,4 +1,5 @@
-import type { ResolvedStandard, StandardId } from '@accessible-ai/standards';
+import type { FrameworkType, Impact, ResolvedStandard, StandardId } from '@accessible-ai/standards';
+import type { CodebaseAnalysisResult } from '../engines/static-analyzer/types.js';
 
 export interface AuditConfig {
   standard: StandardId;
@@ -13,6 +14,7 @@ export interface AuditSession {
   resolvedStandard?: ResolvedStandard;
   deepAnalysis?: DeepAnalysisResult;
   importedViolations?: AxeViolation[];
+  codebaseResult?: CodebaseAnalysisResult;
 }
 
 // ---- Deep analysis (Task 3.3) ----
@@ -66,3 +68,55 @@ export interface DeepAnalysisResult {
   standard: StandardId;
   generatedAt: string;
 }
+
+// ---- Unified issue format (Phase 4/5, architecture doc section 5.2) ----
+
+export interface SourceLocation {
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  column?: number;
+  framework: FrameworkType;
+  componentName?: string;
+}
+
+export interface CodeSnippet {
+  before: string;
+  violating: string;
+  after: string;
+}
+
+export interface RuntimeContext {
+  pageUrl: string;
+  cssSelector: string;
+  renderedHtml: string;
+  screenshot?: string;
+}
+
+export type AutomationLevel = 'auto' | 'llm-assisted' | 'manual-review';
+export type EstimatedEffort = 'trivial' | 'small' | 'medium' | 'large';
+
+export interface RemediationMetadata {
+  automationLevel: AutomationLevel;
+  fixTemplateId?: string;
+  estimatedEffort: EstimatedEffort;
+  groupId?: string;
+}
+
+/** Both runtime (axe-core) and static (ESLint/AST) findings are normalized into this shape before entering remediation. */
+export interface AccessibilityIssue {
+  id: string;
+  source: 'runtime' | 'static';
+  wcagCriteria: string[];
+  standard: string;
+  impact: Impact;
+  ruleId: string;
+  description: string;
+  helpUrl: string;
+  sourceLocation: SourceLocation;
+  codeSnippet: CodeSnippet;
+  runtimeContext?: RuntimeContext;
+  remediation: RemediationMetadata;
+}
+
+export type { CodebaseAnalysisResult };

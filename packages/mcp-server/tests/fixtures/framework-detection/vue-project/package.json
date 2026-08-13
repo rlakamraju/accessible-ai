@@ -1,0 +1,10 @@
+{
+  "name": "fixture-vue-project",
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vuetify": "^3.6.0"
+  },
+  "devDependencies": {
+    "karma": "^6.4.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "sample-vue-project",
+  "private": true,
+  "dependencies": {
+    "vue": "^3.4.0"
+  }
+}

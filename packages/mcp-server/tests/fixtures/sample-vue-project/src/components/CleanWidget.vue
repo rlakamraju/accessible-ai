@@ -1,0 +1,18 @@
+<template>
+  <div>
+    <h1>Account Settings</h1>
+    <h2>Profile</h2>
+    <label for="display-name">Display name</label>
+    <input type="text" id="display-name" />
+    <img src="/avatar.png" alt="Your profile avatar" />
+    <button type="button" @click="onSave" @keydown.enter="onSave">Save</button>
+  </div>
+</template>
+
+<script>
+export default {
+  methods: {
+    onSave() {},
+  },
+};
+</script>

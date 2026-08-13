@@ -47,6 +47,12 @@ export function requireLicense(feature: FeatureFlag) {
   };
 }
 
+/** Checks feature access without wrapping a handler — for tools that only gate part of their behavior (e.g. one output format). */
+export function hasLicensedFeature(feature: FeatureFlag): boolean {
+  const validation = validate(resolveKey());
+  return validation.valid && hasFeature(validation, feature);
+}
+
 type ToolHandler<Args> = (args: Args) => Promise<CallToolResult> | CallToolResult;
 
 /** Wraps an MCP tool handler so it refuses to run without a license covering `feature`. Resolves the key from `LICENSE_KEY` env or disk. */

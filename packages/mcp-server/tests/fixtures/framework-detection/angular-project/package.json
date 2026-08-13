@@ -1,0 +1,14 @@
+{
+  "name": "fixture-angular-project",
+  "dependencies": {
+    "@angular/core": "^17.3.0",
+    "@angular/material": "^17.3.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2"
+  },
+  "scripts": {
+    "test": "jest"
+  }
+}

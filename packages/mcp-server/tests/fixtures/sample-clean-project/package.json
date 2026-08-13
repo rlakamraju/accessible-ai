@@ -1,0 +1,7 @@
+{
+  "name": "sample-clean-project",
+  "private": true,
+  "dependencies": {
+    "@angular/core": "^17.3.0"
+  }
+}

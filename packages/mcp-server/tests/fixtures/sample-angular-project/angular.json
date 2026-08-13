@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "projects": {
+    "sample-angular-project": {
+      "root": "",
+      "sourceRoot": "src"
+    }
+  }
+}
