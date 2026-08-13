@@ -47,14 +47,12 @@ export async function importAuditResults(sessions: SessionManager, { filePath, p
     }
 
     const sessionId = sessions.createSession({ standard: parsed.standard });
-    sessions.updateSession(sessionId, { importedViolations: parsed.axeResults.violations });
+    sessions.updateSession(sessionId, { importedViolations: parsed.axeResults.violations, pageUrl: parsed.pageUrl });
 
     const importedViolations = parsed.axeResults.violations.length;
-    // Runtime -> source mapping (Task 5.2) ships in Phase 5; every violation is unmapped until then.
-    const mappedToSource = 0;
-    const unmapped = projectPath ? importedViolations : 0;
-
-    const summary = { sessionId, importedViolations, mappedToSource, unmapped };
+    // Runtime -> source mapping is a separate step (`map_violations_to_source`, Phase 5) — call it next
+    // with `projectPath` to normalize + map these violations before generating a fix plan.
+    const summary = { sessionId, importedViolations, nextStep: projectPath ? 'map_violations_to_source' : undefined };
     return { content: [{ type: 'text' as const, text: JSON.stringify(summary) }] };
   } catch (error) {
     return {

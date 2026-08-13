@@ -1,4 +1,5 @@
-import type { AxeViolation } from '../config/types.js';
+import type { AccessibilityIssue, AxeViolation } from '../config/types.js';
+import type { ProjectContext } from '../engines/remediation/types.js';
 
 export const ACCESSIBILITY_EXPERT_SYSTEM_PROMPT = `You are an accessibility expert grounded in the WCAG success criteria and the specific compliance standard given to you (do not invent criterion numbers). Respond with a JSON object matching the schema described in the user message — no prose outside the JSON.`;
 
@@ -43,6 +44,26 @@ Assess whether this "${widgetType}" widget has a complete ARIA pattern (roles, s
 ${componentHtml}
 
 Return JSON: { "isComplete": boolean, "missingPieces": string[], "recommendation": string }`;
+}
+
+export function buildFixGenerationPrompt(issue: AccessibilityIssue, context: ProjectContext, fileContent: string): string {
+  return `
+Generate a fix for this accessibility issue. Standard: ${issue.standard}. WCAG criteria: ${issue.wcagCriteria.join(', ') || '(none mapped)'}.
+
+Rule: ${issue.ruleId}
+Impact: ${issue.impact}
+Description: ${issue.description}
+Violating code:
+${issue.codeSnippet.violating || issue.runtimeContext?.renderedHtml || '(no snippet available)'}
+
+Project context: framework=${context.framework}${context.frameworkVersion ? ` v${context.frameworkVersion}` : ''}, uiLibrary=${context.uiLibrary ?? 'none'}, namingConvention=${context.namingConvention}, existingA11yImports=${JSON.stringify(context.existingA11yImports)}.
+
+Full current content of ${issue.sourceLocation.filePath || '(file unknown)'}:
+${fileContent}
+
+Produce a minimal, idiomatic fix for this framework (e.g. use the project's existing UI library/CDK utilities if one is already imported, rather than raw DOM APIs). Each "searchBlock" must be an exact, verbatim substring of the file above — it will be used to locate and replace the code.
+
+Return JSON: { "changes": [{ "filePath": string, "searchBlock": string, "replaceBlock": string, "description": string }], "newFiles": [{ "filePath": string, "content": string, "description": string }], "newImports": [{ "filePath": string, "importStatement": string }], "explanation": string }`;
 }
 
 export function buildSummaryPrompt(allFindings: unknown, standard: string): string {

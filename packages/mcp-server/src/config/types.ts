@@ -1,5 +1,6 @@
 import type { FrameworkType, Impact, ResolvedStandard, StandardId } from '@accessible-ai/standards';
 import type { CodebaseAnalysisResult } from '../engines/static-analyzer/types.js';
+import type { AppliedFix, FixPlan } from '../engines/remediation/types.js';
 
 export interface AuditConfig {
   standard: StandardId;
@@ -14,7 +15,13 @@ export interface AuditSession {
   resolvedStandard?: ResolvedStandard;
   deepAnalysis?: DeepAnalysisResult;
   importedViolations?: AxeViolation[];
+  /** The page the imported violations were audited on — carried through from the extension's export so the runtime normalizer/LLM prompts can reference it. */
+  pageUrl?: string;
   codebaseResult?: CodebaseAnalysisResult;
+  /** Unified, deduped, (best-effort) source-mapped issue list — set by `map_violations_to_source` (Phase 5). */
+  issues?: AccessibilityIssue[];
+  fixPlan?: FixPlan;
+  appliedFixes?: AppliedFix[];
 }
 
 // ---- Deep analysis (Task 3.3) ----
@@ -120,3 +127,4 @@ export interface AccessibilityIssue {
 }
 
 export type { CodebaseAnalysisResult };
+export type { AppliedFix, FixPlan } from '../engines/remediation/types.js';

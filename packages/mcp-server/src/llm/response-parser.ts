@@ -39,3 +39,28 @@ export function formatSummary(raw: string): string {
   const parsed = parseJsonResponse<SummaryResponse>(raw);
   return parsed?.summary ?? raw.trim();
 }
+
+export interface FixResponseChange {
+  filePath: string;
+  searchBlock: string;
+  replaceBlock: string;
+  description: string;
+}
+
+export interface FixResponseNewFile {
+  filePath: string;
+  content: string;
+  description: string;
+}
+
+export interface FixResponse {
+  changes?: FixResponseChange[];
+  newFiles?: FixResponseNewFile[];
+  newImports?: Array<{ filePath: string; importStatement: string }>;
+  explanation?: string;
+}
+
+/** Parses `buildFixGenerationPrompt`'s expected response shape. Returns `null` (not a partial object) if the JSON itself doesn't parse — callers fall back to manual guidance using the raw text. */
+export function parseFixResponse(raw: string): FixResponse | null {
+  return parseJsonResponse<FixResponse>(raw);
+}

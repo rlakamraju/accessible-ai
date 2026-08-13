@@ -55,15 +55,15 @@ describe('importAuditResults', () => {
     expect(sessions.getSession(summary.sessionId)?.importedViolations).toHaveLength(1);
   });
 
-  it('reports every violation as unmapped when no source mapper has run yet', async () => {
+  it('points at map_violations_to_source next when a projectPath is given, and persists pageUrl', async () => {
     const filePath = join(dir, 'audit-results.json');
     await writeFile(filePath, JSON.stringify(validExport));
 
     const sessions = new SessionManager();
     const summary = parseResult(await importAuditResults(sessions, { filePath, projectPath: dir }));
 
-    expect(summary.mappedToSource).toBe(0);
-    expect(summary.unmapped).toBe(1);
+    expect(summary.nextStep).toBe('map_violations_to_source');
+    expect(sessions.getSession(summary.sessionId)?.pageUrl).toBe('https://example.com');
   });
 
   it('returns an error for a file that is not a valid AccessibleAI export', async () => {
