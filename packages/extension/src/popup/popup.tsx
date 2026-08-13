@@ -13,9 +13,13 @@ import { CrawlProgress } from './components/CrawlProgress';
 import { AuditHistory } from './components/AuditHistory';
 import { useAudit } from './hooks/useAudit';
 import { useSiteAudit } from './hooks/useSiteAudit';
+import { useMcpConnection } from './hooks/useMcpConnection';
+import { useLicense } from './hooks/useLicense';
 import { checkFeatureAccess, type FeatureAccessResult } from '../core/license-gate';
 import { getActiveTabId, getActiveTabUrl } from '../shared/browser-tabs';
 import type { HighlightSingleMessage } from '../shared/messaging';
+import { DeepAnalysis } from './components/DeepAnalysis';
+import { ConnectionIndicator } from './components/ConnectionIndicator';
 import './styles/popup.css';
 
 type View = 'audit' | 'settings' | 'history';
@@ -23,9 +27,13 @@ type View = 'audit' | 'settings' | 'history';
 function Popup() {
   const [standard, setStandard] = useState<StandardId>('wcag-2.1-aa');
   const [view, setView] = useState<View>('audit');
-  const [deepAnalysisAccess, setDeepAnalysisAccess] = useState<FeatureAccessResult | null>(null);
   const [siteAuditAccess, setSiteAuditAccess] = useState<FeatureAccessResult | null>(null);
   const { isAuditing, results, error, startAudit } = useAudit();
+  const { isConnected: isMcpConnected } = useMcpConnection();
+  const { licenseStatus } = useLicense();
+  const isDeepAnalysisLicensed = Boolean(
+    licenseStatus?.valid && licenseStatus.features?.includes('deep-analysis'),
+  );
   const {
     progress: siteProgress,
     isRunning: isSiteAuditing,
@@ -35,7 +43,6 @@ function Popup() {
   } = useSiteAudit();
 
   async function handleAudit(): Promise<void> {
-    setDeepAnalysisAccess(null);
     await startAudit(standard);
   }
 
@@ -47,11 +54,6 @@ function Popup() {
     } catch {
       // Best-effort — the overlay may not be injected on this page.
     }
-  }
-
-  async function handleDeepAnalysisClick(): Promise<void> {
-    const access = await checkFeatureAccess('deep-analysis');
-    setDeepAnalysisAccess(access);
   }
 
   async function handleStartSiteAudit(maxPages: number): Promise<void> {
@@ -79,6 +81,7 @@ function Popup() {
       <header className="popup-header">
         <h1>AccessibleAI</h1>
         <div className="popup-header-actions">
+          <ConnectionIndicator isConnected={isMcpConnected} isLicensed={isDeepAnalysisLicensed} />
           <button
             type="button"
             className="settings-gear"
@@ -116,21 +119,11 @@ function Popup() {
             <>
               <Dashboard result={results.result} score={results.score} />
 
-              <button type="button" className="deep-analysis-button" onClick={handleDeepAnalysisClick}>
-                Deep Analysis (AI)
-              </button>
-              {deepAnalysisAccess && !deepAnalysisAccess.allowed && (
-                <UpgradePrompt
-                  feature="deep-analysis"
-                  reason={deepAnalysisAccess.reason}
-                  onOpenSettings={() => setView('settings')}
-                />
-              )}
-              {deepAnalysisAccess?.allowed && (
-                <p className="deep-analysis-note">
-                  Deep Analysis is unlocked — the MCP server bridge that powers it ships in Phase 3.
-                </p>
-              )}
+              <DeepAnalysis
+                result={results.result}
+                isConnected={isMcpConnected}
+                onOpenSettings={() => setView('settings')}
+              />
 
               <ViolationList result={results.result} onSelectViolation={handleSelectViolation} />
               <ReportExport kind="page" result={results.result} score={results.score} standardName={standardName} />

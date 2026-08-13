@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLicense } from '../hooks/useLicense';
+import { useAnthropicKey } from '../hooks/useAnthropicKey';
 
 interface LicenseSettingsProps {
   onClose: () => void;
@@ -7,8 +8,11 @@ interface LicenseSettingsProps {
 
 export function LicenseSettings({ onClose }: LicenseSettingsProps) {
   const { licenseStatus, isLoading, saveLicenseKey, removeLicenseKey } = useLicense();
+  const { status: anthropicStatus, saveAnthropicKey, removeAnthropicKey } = useAnthropicKey();
   const [inputValue, setInputValue] = useState('');
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [anthropicInputValue, setAnthropicInputValue] = useState('');
+  const [confirmingAnthropicRemove, setConfirmingAnthropicRemove] = useState(false);
 
   async function handleSave(): Promise<void> {
     const key = inputValue.trim();
@@ -20,6 +24,18 @@ export function LicenseSettings({ onClose }: LicenseSettingsProps) {
   async function handleRemove(): Promise<void> {
     await removeLicenseKey();
     setConfirmingRemove(false);
+  }
+
+  async function handleSaveAnthropicKey(): Promise<void> {
+    const key = anthropicInputValue.trim();
+    if (!key) return;
+    await saveAnthropicKey(key);
+    setAnthropicInputValue('');
+  }
+
+  async function handleRemoveAnthropicKey(): Promise<void> {
+    await removeAnthropicKey();
+    setConfirmingAnthropicRemove(false);
   }
 
   return (
@@ -107,6 +123,49 @@ export function LicenseSettings({ onClose }: LicenseSettingsProps) {
         rel="noreferrer"
       >
         Get a License Key
+      </a>
+
+      <hr />
+
+      <h2>Claude API Key</h2>
+      <p className="anthropic-key-note">
+        Deep Analysis calls Claude directly using your own Anthropic API key — it's billed to your account, sent only
+        to your locally running MCP server, and never shared with AccessibleAI.
+      </p>
+
+      {anthropicStatus?.hasKey && <p className="license-key-preview">Key: {anthropicStatus.keyPreview}</p>}
+
+      <div className="license-input-row">
+        <input
+          type="password"
+          placeholder="Paste Anthropic API key (sk-ant-...)"
+          value={anthropicInputValue}
+          onChange={(e) => setAnthropicInputValue(e.target.value)}
+        />
+        <button type="button" onClick={handleSaveAnthropicKey} disabled={!anthropicInputValue.trim()}>
+          Save
+        </button>
+      </div>
+
+      {anthropicStatus?.hasKey && !confirmingAnthropicRemove && (
+        <button type="button" className="link-button" onClick={() => setConfirmingAnthropicRemove(true)}>
+          Remove Key
+        </button>
+      )}
+      {confirmingAnthropicRemove && (
+        <div className="confirm-remove">
+          <span>Remove Anthropic API key?</span>
+          <button type="button" onClick={handleRemoveAnthropicKey}>
+            Yes, remove
+          </button>
+          <button type="button" onClick={() => setConfirmingAnthropicRemove(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <a className="get-license-link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
+        Get a Claude API Key
       </a>
     </div>
   );

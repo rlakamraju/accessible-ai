@@ -1,0 +1,14 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { SessionManager } from './session/session-manager.js';
+import { registerConfigureAuditTool } from './tools/configure-audit.js';
+import { registerImportAuditResultsTool } from './tools/import-audit-results.js';
+
+export function createMcpServer(): McpServer {
+  return new McpServer({ name: 'accessible-ai', version: '1.0.0' });
+}
+
+/** Registers all MCP tool handlers on the given server instance. */
+export function registerTools(server: McpServer, sessions: SessionManager): void {
+  registerConfigureAuditTool(server, sessions);
+  registerImportAuditResultsTool(server, sessions);
+}
