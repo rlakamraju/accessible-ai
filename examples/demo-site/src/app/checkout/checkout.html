@@ -1,0 +1,75 @@
+<main class="checkout">
+  <h1>Checkout</h1>
+  <p>Fields marked <span class="required-mark">*</span> are required.</p>
+  <!-- Intentional violation: 1.4.1 Use of Color — "required" is communicated
+       solely through the red color of the asterisk (see .required-mark in
+       checkout.css). There is no text equivalent (e.g. "(required)") and no
+       aria-required attribute on the fields below, so a user who cannot
+       perceive color gets no indication which fields are mandatory. -->
+
+  <!--
+    Intentional violation (all fields below): 3.3.2 Labels or Instructions /
+    1.3.1 Info and Relationships / 4.1.2 Name, Role, Value — each field is
+    preceded by a plain `<div class="field-label">`, not a real `<label>`
+    element, with no `for`/`id`/`aria-labelledby` link to its input. Visually
+    it looks fully labeled, but the input has no accessible name whatsoever.
+    This was verified against the actual axe-core package vendored in this
+    repo: an `<input>` with only a `placeholder` (no real label) is NOT
+    flagged by axe-core's `label` rule, because browsers fall back to
+    `placeholder` as the accessible name — so a placeholder-only field would
+    (incorrectly) pass an automated scan. Using a disconnected visual div
+    instead reproduces the far more common real-world bug and reliably
+    fails the `label` rule (axe-core: label).
+  -->
+  <form (submit)="$event.preventDefault(); submitOrder()">
+    <div class="field">
+      <div class="field-label">Full Name <span class="required-mark">*</span></div>
+      <input type="text" name="fullName" />
+    </div>
+
+    <div class="field">
+      <div class="field-label">Email Address <span class="required-mark">*</span></div>
+      <input type="email" name="email" />
+    </div>
+
+    <div class="field">
+      <!-- also demonstrates: input type=text used for a phone number with no
+           format hint. -->
+      <div class="field-label">Phone Number <span class="required-mark">*</span></div>
+      <input type="text" name="phone" />
+    </div>
+
+    <div class="field">
+      <div class="field-label">Shipping Address <span class="required-mark">*</span></div>
+      <input type="text" name="address" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <!-- also demonstrates: 1.3.5 Identify Input Purpose — no
+             autocomplete="cc-number" token, so the field's purpose isn't
+             programmatically determinable (manual/best-practice check). -->
+        <div class="field-label">Card Number <span class="required-mark">*</span></div>
+        <input type="text" name="cardNumber" />
+      </div>
+
+      <div class="field">
+        <!-- also demonstrates: input type=text used for a date value
+             (expects "MM/YY") with no format guidance anywhere in the DOM. -->
+        <div class="field-label">Expiration (MM/YY) <span class="required-mark">*</span></div>
+        <input type="text" name="expiration" />
+      </div>
+
+      <div class="field">
+        <div class="field-label">CVV <span class="required-mark">*</span></div>
+        <input type="text" name="cvv" />
+      </div>
+    </div>
+
+    <!-- Intentional violation: 4.1.2 Name, Role, Value — the "place order"
+         submit control is an icon-only button showing just a checkmark
+         glyph (drawn in CSS, see .submit-btn::after in checkout.css), with
+         no text content and no aria-label, so it has no accessible name. -->
+    <button type="submit" class="submit-btn"></button>
+  </form>
+</main>

@@ -11,6 +11,8 @@ const config: Configuration = {
     'content/injector': './src/content/injector.ts',
     'popup/popup': './src/popup/popup.tsx',
     'sidepanel/sidepanel': './src/sidepanel/sidepanel.tsx',
+    'devtools/devtools': './src/devtools/devtools.ts',
+    'devtools/panel/panel': './src/devtools/panel/panel.tsx',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -66,6 +68,16 @@ const config: Configuration = {
       filename: 'sidepanel/sidepanel.html',
       template: './src/sidepanel/sidepanel.html',
       chunks: ['sidepanel/sidepanel'],
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'devtools/devtools.html',
+      template: './src/devtools/devtools.html',
+      chunks: ['devtools/devtools'],
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'devtools/panel/panel.html',
+      template: './src/devtools/panel/panel.html',
+      chunks: ['devtools/panel/panel'],
     }),
   ],
 };

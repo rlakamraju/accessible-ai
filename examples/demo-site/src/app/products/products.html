@@ -1,0 +1,103 @@
+<main class="products">
+  <h1>All Products</h1>
+
+  <div class="toolbar">
+    <!-- Intentional violation: 3.3.2 Labels or Instructions — this page-local
+         search box has no <label>, no aria-label, and no placeholder, so it
+         has no accessible name at all (axe-core: label). -->
+    <input type="text" class="page-search" />
+
+    <label for="price-filter">Quick price filter</label>
+    <!-- Intentional violation: 4.1.1 Parsing — id="price-filter" is reused a
+         second time on the sidebar filter panel further down this same page;
+         both selects, and both of their <label for="price-filter"> elements,
+         render simultaneously (axe-core: duplicate-id-aria, the rule that is
+         enabled by default in current axe-core — the older "duplicate-id"
+         rule that fires on *any* duplicate id is deprecated/disabled by
+         default). -->
+    <select id="price-filter" class="quick-filter">
+      <option>Any price</option>
+      <option>Under $25</option>
+      <option>$25–$75</option>
+      <option>Over $75</option>
+    </select>
+
+    <!-- Intentional violation: 2.1.1 Keyboard — custom "Sort by" combobox
+         built from <div>s. It only opens/selects via mouse (click), with no
+         role, no tabindex, and no keyboard handling whatsoever. -->
+    <div class="custom-select">
+      <div class="custom-select-toggle" (click)="toggleSort()">Sort by: {{ sortLabel }}</div>
+      @if (sortOpen) {
+        <div class="custom-select-menu">
+          <div class="custom-select-option" (click)="selectSort('Featured')">Featured</div>
+          <div class="custom-select-option" (click)="selectSort('Price: Low to High')">
+            Price: Low to High
+          </div>
+          <div class="custom-select-option" (click)="selectSort('Price: High to Low')">
+            Price: High to Low
+          </div>
+          <div class="custom-select-option" (click)="selectSort('Newest')">Newest</div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="filters">
+      <h2>Filters</h2>
+      <label for="price-filter">Price range (sidebar)</label>
+      <!-- Second element with id="price-filter" — see note above. -->
+      <select id="price-filter">
+        <option>Any price</option>
+        <option>Under $25</option>
+        <option>$25–$75</option>
+        <option>Over $75</option>
+      </select>
+    </aside>
+
+    <section class="product-grid">
+      @for (product of products; track product.name) {
+        <article class="product-card">
+          <img [src]="product.image" [alt]="product.imageAlt" class="product-image" />
+
+          <!-- Intentional violation: 2.4.6 Headings and Labels — an empty
+               heading used purely to reserve vertical spacing in the card
+               layout. Screen readers announce a heading with no content,
+               which is confusing and provides no information. -->
+          <h3></h3>
+
+          <h4 class="product-name">{{ product.name }}</h4>
+          <p class="price">{{ product.price }}</p>
+
+          @if (product.outOfStock) {
+            <!-- Intentional violation: 1.4.3 Contrast (Minimum) — #a0a0a0 text
+                 on a #e8e8e8 background is a 2.13:1 contrast ratio, below the
+                 4.5:1 AA minimum for normal text. -->
+            <p class="out-of-stock">Out of stock</p>
+          }
+
+          <div class="card-actions">
+            <div class="quantity-stepper">
+              <!-- Intentional violation: WCAG 2.2 SC 2.5.8 Target Size
+                   (Minimum) — these +/- stepper buttons are styled to ~16x16
+                   CSS px (see products.css `.qty-btn`), well under the 24x24
+                   CSS px minimum target size, making them hard to tap
+                   accurately on touchscreens. -->
+              <button class="qty-btn" aria-label="Decrease quantity">-</button>
+              <span class="qty-value">1</span>
+              <button class="qty-btn" aria-label="Increase quantity">+</button>
+            </div>
+
+            <!-- Intentional violation: 4.1.2 Name, Role, Value — icon-only
+                 "Add to Wishlist" button. The heart icon is drawn entirely in
+                 CSS (see products.css `.wishlist-btn::before`); CSS generated
+                 content is not exposed to the accessibility tree, so this
+                 button has no text, no aria-label, and therefore no
+                 accessible name at all (axe-core: button-name). -->
+            <button class="wishlist-btn"></button>
+          </div>
+        </article>
+      }
+    </section>
+  </div>
+</main>

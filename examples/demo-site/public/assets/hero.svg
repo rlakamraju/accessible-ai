@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6c63ff"/>
+      <stop offset="100%" stop-color="#3f3aa0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" fill="url(#g)"/>
+  <text x="60" y="160" font-family="Arial, sans-serif" font-size="56" fill="#ffffff" font-weight="bold">Summer Sale: Up to 50% Off</text>
+  <text x="60" y="220" font-family="Arial, sans-serif" font-size="28" fill="#e0e0ff">Free shipping on every order this week</text>
+</svg>

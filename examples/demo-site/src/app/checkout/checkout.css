@@ -1,0 +1,63 @@
+.checkout {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.checkout form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.checkout input,
+.checkout textarea {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.field-label {
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+  color: #333;
+}
+
+.checkout .row {
+  display: flex;
+  gap: 1rem;
+}
+
+.checkout .row > * {
+  flex: 1;
+}
+
+.required-mark {
+  color: #e33d3d;
+  margin-left: 0.2rem;
+}
+
+.submit-btn {
+  align-self: flex-start;
+  width: 52px;
+  height: 44px;
+  border-radius: 6px;
+  border: none;
+  background: #3f3aa0;
+  color: #fff;
+  cursor: pointer;
+  position: relative;
+}
+
+.submit-btn::after {
+  content: '✓';
+  font-size: 1.4rem;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

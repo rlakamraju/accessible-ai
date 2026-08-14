@@ -1,0 +1,61 @@
+<!--
+  NOTE: there is deliberately no "Skip to main content" link here.
+  Intentional violation: 2.4.1 Bypass Blocks — a keyboard/screen-reader user
+  has no way to bypass the header/nav block on every single page and must
+  tab through the logo, hamburger button, all nav links, the "More" dropdown
+  and the search box before reaching the page content.
+-->
+<header class="site-header">
+  <a routerLink="/" class="brand">ShopEasy</a>
+
+  <!-- Intentional violation: 4.1.2 Name, Role, Value — icon-only button built
+       from three plain <span> bars, no aria-label, no visible text, no
+       aria-expanded to reflect state. A screen reader announces this as an
+       unlabeled "button" with no indication of what it does. -->
+  <button class="hamburger" (click)="toggleMobileNav()">
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+  </button>
+
+  <nav class="main-nav" [class.open]="mobileNavOpen">
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+    <a routerLink="/products" routerLinkActive="active">Products</a>
+    <a routerLink="/checkout" routerLinkActive="active">Checkout</a>
+    <a routerLink="/contact" routerLinkActive="active">Contact</a>
+
+    <!-- Intentional violation: 2.1.1 Keyboard — custom "More" dropdown widget
+         implemented with plain <div>s. It only responds to mouse clicks: no
+         role="button", no tabindex, no keydown/keyup handler, so it cannot be
+         opened, closed, or navigated with a keyboard alone. -->
+    <div class="dropdown">
+      <div class="dropdown-toggle" (click)="toggleMore()">More ▾</div>
+      @if (moreOpen) {
+        <div class="dropdown-menu">
+          <div class="dropdown-item" (click)="toggleMore()">About Us</div>
+          <div class="dropdown-item" (click)="toggleMore()">FAQ</div>
+          <div class="dropdown-item" (click)="toggleMore()">Store Locator</div>
+        </div>
+      }
+    </div>
+
+    <!-- Intentional violation: 3.3.2 Labels or Instructions — search input has
+         no <label>, no aria-label, no aria-labelledby, and no placeholder;
+         its only visual cue is a decorative (aria-hidden) icon, so it has no
+         accessible name whatsoever (axe-core: label). -->
+    <span class="search-icon" aria-hidden="true"></span>
+    <input type="text" class="search-box" />
+  </nav>
+</header>
+
+<router-outlet></router-outlet>
+
+<footer class="site-footer">
+  <!-- Intentional violation: 1.4.3 Contrast (Minimum) — #aaaaaa on #ffffff is
+       a 2.32:1 contrast ratio, which fails the WCAG AA requirement of 4.5:1
+       for normal text (and even the 3:1 large-text minimum). -->
+  <p class="footer-text">
+    &copy; 2026 ShopEasy Demo. This site is an intentionally inaccessible fixture built for
+    accessibility-testing tools.
+  </p>
+</footer>

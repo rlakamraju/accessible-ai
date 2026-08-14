@@ -1,0 +1,78 @@
+.home {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.hero-image {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
+.ticker {
+  background: #222;
+  color: #fff;
+  padding: 0.5rem 0;
+  font-weight: bold;
+  margin: 1.5rem 0;
+}
+
+.cta-button {
+  display: inline-block;
+  margin: 1rem 0 2rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: bold;
+  background: #f0f0f0;
+  color: #cccccc;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature h4 {
+  margin-bottom: 0.25rem;
+}
+
+.story {
+  margin: 2rem 0;
+}
+
+.social {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.social-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.icon-fb {
+  background: #3b5998;
+}
+
+.icon-tw {
+  background: #1da1f2;
+}
+
+.icon-ig {
+  background: #c13584;
+}
+
+.newsletter {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #eee;
+}

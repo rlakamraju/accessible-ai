@@ -1,0 +1,46 @@
+@if (showBanner) {
+  <div class="promo-banner">
+    <p>Sign up for our newsletter and get 10% off your first order!</p>
+    <!-- Intentional violation: 4.1.2 Name, Role, Value — icon-only "close"
+         button. The "×" glyph is drawn in CSS (see contact.css
+         `.close-btn::before`), which is invisible to the accessibility tree,
+         so this button has no accessible name at all (axe-core:
+         button-name). -->
+    <button class="close-btn" (click)="dismissBanner()"></button>
+  </div>
+}
+
+<main class="contact">
+  <h1>Contact Us</h1>
+  <p>Have a question? Send us a message and we'll get back to you within 1 business day.</p>
+
+  <form>
+    <!-- Intentional violation: 3.3.2 Labels or Instructions — the "Subject"
+         text is a plain <div>, not a real <label>, with no for/aria-labelledby
+         link, so the input has no accessible name (axe-core: label). -->
+    <div class="field">
+      <div class="field-label">Subject</div>
+      <input type="text" name="subject" />
+    </div>
+
+    <!-- Intentional violation: 3.3.2 Labels or Instructions — same issue for
+         the message textarea. -->
+    <div class="field">
+      <div class="field-label">Message</div>
+      <textarea name="message" rows="5"></textarea>
+    </div>
+
+    <!-- Intentional violation: 1.4.3 Contrast (Minimum) — low-contrast hint
+         text, see .hint in contact.css (1.88:1 ratio). -->
+    <p class="hint">We typically reply within one business day.</p>
+
+    <button type="submit" class="submit-btn">Send Message</button>
+  </form>
+
+  <h2>Visit Our Store</h2>
+  <!-- Intentional violation: 2.4.1 Bypass Blocks / 4.1.2 Name, Role, Value —
+       embedded map iframe has no title attribute, so screen-reader users
+       navigating by landmark/frame get an unlabeled frame with no
+       indication of what it contains (axe-core: frame-title). -->
+  <iframe class="map-embed" src="https://www.google.com/maps?q=ShopEasy+HQ&output=embed"></iframe>
+</main>

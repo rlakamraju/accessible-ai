@@ -1,0 +1,80 @@
+<main class="home">
+  <!-- Intentional violation: 1.1.1 Non-text Content — hero banner image has
+       no alt attribute at all, even though it carries the page's main
+       headline ("Summer Sale: Up to 50% Off") as pixels inside the SVG. A
+       screen reader user gets nothing. -->
+  <img src="assets/hero.svg" class="hero-image" />
+
+  <h1>Welcome to ShopEasy</h1>
+  <p>Your one-stop shop for everything you need, delivered fast.</p>
+
+  <!-- Intentional violation: 2.2.2 Pause, Stop, Hide — deprecated <marquee>
+       element auto-scrolls continuously with no button/control to pause,
+       stop, or hide it. -->
+  <marquee behavior="scroll" direction="left" class="ticker">
+    Breaking: free shipping on every order this week · new arrivals dropping daily · sign up
+    for 10% off your first order
+  </marquee>
+
+  <!-- Intentional violation: 1.4.2 Audio Control — audio autoplays,
+       is not muted, plays for longer than 3 seconds, and there is no
+       visible player/controls to pause or stop it. -->
+  <audio src="assets/ambient.wav" autoplay></audio>
+
+  <a routerLink="/products" class="cta-button">Shop Now</a>
+  <!-- ^ Intentional violation: 1.4.3 Contrast (Minimum) — #cccccc text on a
+       #f0f0f0 button background is a 1.41:1 contrast ratio (see home.css),
+       far below the 4.5:1 minimum for normal text. -->
+
+  <section class="features">
+    <h2>Why Shop With Us</h2>
+
+    <div class="feature">
+      <!-- Intentional violation: 2.4.6 Headings and Labels — heading level
+           jumps from <h2> straight to <h4>, skipping <h3>, which breaks the
+           document's heading outline for screen-reader users navigating by
+           heading level. -->
+      <h4>Fast Shipping</h4>
+      <p>Get your order in 2-3 business days, guaranteed.</p>
+    </div>
+
+    <div class="feature">
+      <h4>Easy Returns</h4>
+      <p>30-day no-questions-asked return policy on everything.</p>
+    </div>
+
+    <div class="feature">
+      <h4>24/7 Support</h4>
+      <p>Our team is here around the clock to help.</p>
+    </div>
+  </section>
+
+  <section class="story">
+    <p>
+      Curious how we got started?
+      <!-- Intentional violation: 2.4.4 Link Purpose (In Context) — link text
+           "Click here" gives no indication of the link's destination or
+           purpose out of context. -->
+      <a href="#">Click here</a>.
+    </p>
+  </section>
+
+  <section class="social">
+    <h2>Follow Us</h2>
+    <!-- Intentional violation: 2.4.4 Link Purpose / 4.1.2 Name, Role, Value —
+         these three links contain only a decorative CSS icon glyph and no
+         text content, aria-label, or title, so they have no accessible name
+         at all (axe-core: link-name). -->
+    <a href="https://facebook.com" class="social-icon icon-fb"></a>
+    <a href="https://twitter.com" class="social-icon icon-tw"></a>
+    <a href="https://instagram.com" class="social-icon icon-ig"></a>
+  </section>
+
+  <section class="newsletter">
+    <!-- Intentional violation: 2.4.6 Headings and Labels — a second <h1> on
+         the same page. Each page should have exactly one <h1> describing its
+         main topic; two competing <h1>s break the page's outline. -->
+    <h1>Join Our Newsletter</h1>
+    <p>Get 10% off your first order when you sign up below.</p>
+  </section>
+</main>
