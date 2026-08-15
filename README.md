@@ -84,7 +84,7 @@ TypeScript monorepo (npm workspaces + Turborepo) · React (extension UI) · axe-
 
 ## Contributing
 
-This is a portfolio/interview project, not yet accepting external contributions. Issues and forks are welcome. If you're picking this repo back up: read `a11y-implementation-plan.md`'s phase you're resuming, and the "Conventions for Claude Code Sessions" section at its end.
+This is a portfolio project, not yet accepting external contributions. Issues and forks are welcome. If you're picking this repo back up: read `a11y-implementation-plan.md`'s phase you're resuming, and the "Conventions for Claude Code Sessions" section at its end.
 
 ## License
 
