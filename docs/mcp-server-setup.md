@@ -39,7 +39,8 @@ Add to `claude_desktop_config.json`:
       "args": ["/absolute/path/to/accessible-ai/packages/mcp-server/dist/index.js", "--stdio"],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-...",
-        "LICENSE_KEY": "AAI-PRO-..."
+        "LICENSE_KEY": "AAI-PRO-...",
+        "LICENSE_SECRET": "accessible-ai-dev-secret-2026"
       }
     }
   }
@@ -47,6 +48,8 @@ Add to `claude_desktop_config.json`:
 ```
 
 Pass `--stdio` explicitly even though it's the default when `--http` is absent — being explicit here avoids surprises if this config is ever copied alongside an `--http` invocation.
+
+`LICENSE_SECRET` must be set on **every** process that validates a key — the `--http` daemon the extension talks to, and separately any stdio process a client spawns — since license validation is HMAC verification against that secret, not a lookup. A valid-looking key with no `LICENSE_SECRET` on the server side always fails closed with "LICENSE_SECRET is not configured," even though the key itself is fine (this is exactly what happens if you launch `--http` without setting it in the same shell, e.g. via `set LICENSE_SECRET=...` first on Windows `cmd.exe`, since `cmd.exe` has no bash-style inline `VAR=value command` syntax).
 
 ## Claude Code configuration
 

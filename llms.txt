@@ -1,0 +1,65 @@
+# AccessibleAI
+
+> AI-powered accessibility compliance suite — Chrome Extension + MCP Server for auditing websites and codebases against WCAG, ADA, Section 508, and EAA standards with automated remediation.
+
+AccessibleAI combines automated rule engines (axe-core) with LLM intelligence (Claude) to provide end-to-end accessibility compliance. It detects violations on live websites via a Chrome Extension, analyzes source code at the AST level via an MCP Server, generates framework-specific fixes (Angular, React, Vue, WordPress), and verifies that fixes resolve violations without regressions.
+
+Unlike existing tools (axe DevTools, WAVE, Lighthouse) that stop at detection, AccessibleAI closes the loop: detect → analyze → plan → fix → verify. The remediation engine produces three tiers of fixes: deterministic AST transforms (~35%), LLM-generated framework-aware code (~45%), and structured guidance for manual review (~20%).
+
+## Key Capabilities
+
+- Runtime accessibility audit via axe-core injection on any website
+- Multi-standard support: WCAG 2.0/2.1/2.2 (A/AA/AAA), ADA, Section 508, EAA (EN 301 549)
+- Standards mapping layer that resolves any standard to its WCAG criteria and axe-core/ESLint rules
+- Framework-aware static code analysis (Angular, React, Vue, WordPress, HTML)
+- AI-powered deep analysis: alt text quality evaluation, ARIA pattern completeness, contextual severity
+- Automated remediation with framework-specific fix generation (Angular CDK, React hooks, Vue directives)
+- Post-fix verification with regression detection and compliance score delta reporting
+- Chrome Extension with page overlay, site crawl, and compliance report export
+- MCP Server with 12 tools for Claude Code / Claude Desktop integration
+- HMAC-based license key system for feature gating
+
+## Architecture
+
+- TypeScript monorepo (npm workspaces + Turborepo)
+- Chrome Extension: Manifest V3, React popup/sidepanel, axe-core injection
+- MCP Server: @modelcontextprotocol/sdk, Express HTTP bridge, Claude API
+- Static Analysis: ESLint programmatic API, TypeScript Compiler API, @angular/compiler, @babel/parser
+- Remediation: AST-based fix templates, LLM-generated patches, unified diff output
+
+## Standards Supported
+
+- WCAG 2.0 / 2.1 / 2.2 at A, AA, or AAA level
+- ADA (Americans with Disabilities Act) — maps to WCAG 2.1 AA
+- Section 508 (US federal) — maps to WCAG 2.0 AA
+- EAA (European Accessibility Act) — maps to EN 301 549 / WCAG 2.1 AA
+
+## Frameworks Supported
+
+- Angular (v14-19) with @angular-eslint and CDK a11y patterns
+- React (v16-18) with eslint-plugin-jsx-a11y and MUI/Chakra patterns
+- Vue (v2-3) with eslint-plugin-vuejs-accessibility
+- WordPress with PHP template and Gutenberg block analysis
+- Static HTML/CSS/JS with direct file editing
+
+## MCP Tools
+
+- configure_audit: Set compliance standard and audit parameters
+- crawl_site: Discover pages from a root URL
+- audit_url: Runtime axe-core audit of a single page
+- audit_site: Crawl and audit all pages
+- analyze_codebase: AST-level static analysis of a frontend project
+- import_audit_results: Import Chrome Extension findings
+- map_violations_to_source: Map runtime violations to source file locations
+- generate_report: Produce compliance report (JSON/Markdown/HTML)
+- generate_fix_plan: Prioritized phased remediation plan
+- apply_fix: Apply fixes (single/phase/all-auto) with dry-run preview
+- verify_fixes: Re-analyze and detect regressions and report compliance delta
+- rollback_fix: Revert a specific fix
+
+## Links
+
+- [Repository](https://github.com/rlakamraju/accessible-ai)
+- [Architecture](https://github.com/rlakamraju/accessible-ai/blob/main/docs/architecture.md)
+- [Implementation Plan](https://github.com/rlakamraju/accessible-ai/blob/main/docs/implementation-plan.md)
+- [Detailed Reference](https://github.com/rlakamraju/accessible-ai/blob/main/llms-full.txt)
